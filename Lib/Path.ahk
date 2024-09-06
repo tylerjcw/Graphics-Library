@@ -109,7 +109,7 @@ class Path {
             .CubicBezierTo(Point(cx + rx, cy + ry * kappa), Point(cx + rx * kappa, cy + ry), Point(cx, cy + ry))
         this.MoveTo(Point(cx, cy + ry))
             .CubicBezierTo(Point(cx - rx * kappa, cy + ry), Point(cx - rx, cy + ry * kappa), Point(cx - rx, cy))
-        this.MoveTo(Point(cx - rx, cy))
+        ;this.MoveTo(Point(cx - rx, cy))
 
         return this
     }

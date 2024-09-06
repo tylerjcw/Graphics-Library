@@ -2,20 +2,29 @@
 
 #Include <GDI+Obj>
 #Include <GDIObj>
-#Include <Graphics\GDI+_Tools>
+#Include <ColorPicker>
 
 ; Create a GUI with a canvas
 mygui  := Gui()
 mygui.OnEvent("Close", (*) => ExitApp())
 
+canvasWidth  := 800
+canvasHeight := 600
+
 gdipRadio := mygui.Add("Radio", "x10 y10 Checked", "GDI+")
 gdiRadio  := myGui.Add("Radio", "x60 y10", "GDI")
-canvas    := mygui.Add("Picture", "x10 y30 w800 h600 +Border")
-canvas2   := mygui.Add("Picture", "x10 y30 w800 h600 +Border")
+colSelect := myGui.Add("Picture", "x110 y9 w50 h15 +Border +BackgroundFFFFFF")
+canvas    := mygui.Add("Picture", "x10 y30 w" canvasWidth " h" canvasHeight " +Border")
+colText   := mygui.Add("Text", "x170 y10", "<-- Click to select ellipse fill color")
+colSelect.OnEvent("Click", UpdateEllipseBrush)
+gdipRadio.OnEvent("Click", ActivateGDIP)
+gdiRadio.OnEvent("Click", ActivateGDI)
 mygui.Show()
 
-; Initialize GDI Object
-gdi := GDIObj(canvas2)
+colSelectGdip := GDIPlusObj(colSelect)
+colSelectGdip.SetCompositingMode(CMode.Blended)
+colSelectGdip.SetSmoothingMode(SMode.AntiAlias)
+colSelectGdip.SetInterpolationMode(IMode.HighQualityBicubic)
 
 ; Initialize GDI+ object
 gdip := GDIPlusObj(canvas)
@@ -25,12 +34,9 @@ gdip.SetInterpolationMode(IMode.HighQualityBicubic)
 
 ;Load Image
 image := gdip.LoadImage("KT_s.png")
-image2 := gdi.LoadImage("KT_s.png")
 
 pathSpeedX := 1
 pathSpeedY := 1
-
-; Create a pen for drawing
 
 ; Create shapes
 bouncingrect    := Rectangle(Point(100, 100), 100, 50)
@@ -39,6 +45,7 @@ rotatingline    := Line(Point(50, 500), Point(200, 550))
 morphingpolygon := Polygon.CreateRegularPolygon(Point(600, 300), 50, 6)
 textObj         := TextObject("Well, Hello There!", Point(160, 15), 0)
 textFont        := Font("Maple Mono", 16)
+textSize        := gdip.MeasureString(textObj.Text, textFont)
 
 ; Create pens and brushes
 bluepen     := Pen(Color.Blue, 2)
@@ -53,6 +60,9 @@ blackbrush  := Brush(Color.Black)
 blackPen2   := Pen(Color.Black, 2)
 blackPen5   := Pen(Color.Black, 5)
 
+colSelectGdip.DrawRectangle(Rectangle(Point(0, 0), colSelectGdip.width, colSelectGdip.height), Pen(Color.Lime, 1), limeBrush)
+colSelectGdip.Render()
+
 ; Create a new path
 myPath := Path(Point(100, 100)).MoveTo(Point(100, 200))  ; Left wall
     .LineTo(Point(200, 100))    ; Roof peak
@@ -66,7 +76,7 @@ myPath := Path(Point(100, 100)).MoveTo(Point(100, 200))  ; Left wall
     .AddEllipse(Ellipse(Point(137, 250), 25, 25))
     .MoveTo(Point(262, 250))    ; Right window
     .AddEllipse(Ellipse(Point(262, 250), 25, 25))
-    .ClosePath()
+    .MoveTo(Point(262, 275))
 
 ;Gradient
 alpha := 20
@@ -129,60 +139,8 @@ Update()
 
 Draw()
 {
-    if gdiRadio.Value
-    {
-        canvas2.Visible := true
-        DrawGDI()
-    }
-    else
-    {
-        canvas2.Visible := false
-    }
-
-    if gdipRadio.Value
-    {
-        canvas.Visible := true
-        DrawGDIP()
-    }
-    else
-    {
-        canvas.Visible := false
-    }
-}
-
-DrawGDI()
-{
     global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier
-    ; Clear the canvas
-    gdi.Clear()
 
-    ; Draw the shapes
-    gdi.DrawRectangle(bouncingrect, bluepen, tealbrush)
-    gdi.DrawEllipse(morphingellipse, greenpen, limebrush)
-    gdi.DrawLine(rotatingline, redpen)
-    gdi.DrawPolygon(morphingpolygon, purplepen, yellowbrush)
-    gdi.DrawBezier(wavyBezier, bluePen, resolution)
-    gdi.DrawImage(image, Rectangle(Point(10, 10), 100, 100))
-
-    ; Sadly, no images yet
-
-    ; Draw the Gradient
-    gdi.DrawGradient(spectrum, Point(150, 10), 30)
-    gdi.DrawRadialGradient(spectrum, Point(600, 150), 100)
-
-    ; Draw the text later in this one, so it shows above the gradient
-    gdi.DrawText(textObj, textFont, tealBrush)
-
-    ; Draw the path
-    gdi.DrawPath(myPath, bluePen, pathBrush)
-
-    ; Render the frame
-    gdi.Render()
-}
-
-DrawGDIP()
-{
-    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier
     ; Clear the canvas
     gdip.Clear()
 
@@ -192,7 +150,6 @@ DrawGDIP()
     gdip.DrawLine(rotatingline, redpen)
     gdip.DrawPolygon(morphingpolygon, purplepen, yellowbrush)
     gdip.DrawBezier(wavyBezier, bluePen, resolution)
-    gdip.DrawText(textObj, textFont, tealBrush)
 
     ; Draw The Image
     gdip.DrawImage(image, Rectangle(Point(10, 10), 100, 100))
@@ -201,11 +158,50 @@ DrawGDIP()
     gdip.DrawGradient(spectrum, Point(150, 10), 30)
     gdip.DrawRadialGradient(spectrum, Point(600, 150), 100)
 
+    ; Draw the Text
+    gdip.DrawText(textObj, textFont, tealBrush)
+
     ; Draw the Path
     gdip.DrawPath(myPath, bluePen, pathBrush)
 
     ; Render the frame
     gdip.Render()
+}
+
+ActivateGDI(*)
+{
+    global gdip, image
+    gdip := GDIObj(canvas)
+    image := gdip.LoadImage("KT_s.bmp")
+}
+
+ActivateGDIP(*)
+{
+    global gdip, image
+    gdip := GDIPlusObj(canvas)
+    gdip.SetCompositingMode(CMode.Blended)
+    gdip.SetSmoothingMode(SMode.AntiAlias)
+    gdip.SetInterpolationMode(IMode.HighQualityBicubic)
+    image := gdip.LoadImage("KT_s.png")
+}
+
+UpdateEllipseBrush(*)
+{
+    global colSelect, limebrush
+
+    SetTimer(Main, 0)
+    picker := ColorPicker(False, , ChangeColor)
+    picker.DefaultCaptureSize := 9
+    picker.Start()
+    SetTimer(Main, 16)
+
+    ChangeColor(col)
+    {
+        limebrush := Brush(col)
+        colSelectGdip.Clear()
+        colSelectGdip.DrawRectangle(Rectangle(Point(0, 0), colSelectGdip.width, colSelectGdip.height), Pen(col, 1), limebrush)
+        colSelectGdip.Render()
+    }
 }
 
 UpdateGradient()
@@ -238,9 +234,9 @@ UpdateRectangle()
     ; Move and bounce rectangle
     bouncingrect.Translate(rectspeedx, rectspeedy)
     bouncingrect.Rotate(1)
-    if (bouncingrect.TopLeft.X <= 0 || bouncingrect.TopLeft.X + bouncingrect.Width >= gdip.width)
+    if (bouncingrect.TopLeft.X <= 0 || bouncingrect.TopLeft.X + bouncingrect.Width >= canvasWidth)
         rectspeedx *= -1
-    if (bouncingrect.TopLeft.Y <= 0 || bouncingrect.TopLeft.Y + bouncingrect.Height >= gdip.height)
+    if (bouncingrect.TopLeft.Y <= 0 || bouncingrect.TopLeft.Y + bouncingrect.Height >= canvasHeight)
         rectspeedy *= -1
 }
 
@@ -266,10 +262,9 @@ UpdateLine()
 
 UpdateText()
 {
-    global textObj, textFont, textSpeed
+    global textObj, textFont, textSpeed, textSize
 
     textObj.Position.X += textSpeed
-    textSize := gdip.MeasureString(textObj.Text, textFont)
     if (textObj.Position.X + textSize.Width >= 510) or (textObj.Position.X <= 150)
         textSpeed *= -1
 }
@@ -286,17 +281,17 @@ UpdatePolygon()
     nextY := polygoncenter.Y + polygonspeedy
 
     ; Check and respond to horizontal collisions
-    if (nextX - nextRadius <= 0) or (nextX + nextRadius >= gdip.width)
+    if (nextX - nextRadius <= 0) or (nextX + nextRadius >= canvasWidth)
     {
         polygonspeedx *= -1
-        nextX := Max(nextRadius, Min(gdip.width - nextRadius, nextX))
+        nextX := Max(nextRadius, Min(canvasWidth - nextRadius, nextX))
     }
 
     ; Check and respond to vertical collisions
-    if (nextY - nextRadius <= 0) or (nextY + nextRadius >= gdip.height)
+    if (nextY - nextRadius <= 0) or (nextY + nextRadius >= canvasHeight)
     {
         polygonspeedy *= -1
-        nextY := Max(nextRadius, Min(gdip.height - nextRadius, nextY))
+        nextY := Max(nextRadius, Min(canvasHeight - nextRadius, nextY))
     }
 
     ; Update the polygon's position

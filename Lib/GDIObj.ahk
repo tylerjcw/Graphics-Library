@@ -360,58 +360,121 @@ class GDIObj
     }
 
     DrawPath(path, pen, brush := 0)
-{
-    oldPen := DllCall("CreatePen", "Int", 0, "Int", pen.Width, "UInt", pen.Color.ToHex("0x{B}{G}{R}").Full)
-    oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
-
-    if (brush != 0)
     {
-        oldBrush := DllCall("CreateSolidBrush", "UInt", brush.Color.ToHex("0x{B}{G}{R}").Full)
-        oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
-    }
-    else
-    {
-        oldBrush := DllCall("GetStockObject", "Int", 5)  ; NULL_BRUSH
-        oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
-    }
+        oldPen := DllCall("CreatePen", "Int", 0, "Int", pen.Width, "UInt", pen.Color.ToHex("0x{B}{G}{R}").Full)
+        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
 
-    DllCall("BeginPath", "Ptr", this.hMemDC)
-
-    for element in path.Data
-    {
-        switch element.Type
+        if (brush != 0)
         {
-            case "MoveTo":
-                DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y, "Ptr", 0)
-            case "LineTo":
-                DllCall("LineTo", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y)
-            case "ArcTo":
-                DllCall("Arc", "Ptr", this.hMemDC,
-                        "Int", element.Point.X - element.Radius,
-                        "Int", element.Point.Y - element.Radius,
-                        "Int", element.Point.X + element.Radius,
-                        "Int", element.Point.Y + element.Radius,
-                        "Int", element.StartAngle,
-                        "Int", element.SweepAngle)
-            case "ClosePath":
-                DllCall("CloseFigure", "Ptr", this.hMemDC)
+            oldBrush := DllCall("CreateSolidBrush", "UInt", brush.Color.ToHex("0x{B}{G}{R}").Full)
+            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+        }
+        else
+        {
+            oldBrush := DllCall("GetStockObject", "Int", 5)  ; NULL_BRUSH
+            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+        }
+
+        DllCall("SetPolyFillMode", "Ptr", this.hMemDC, "Int", path.FillMode + 1) ; WINDING : ALTERNATE
+
+        DllCall("BeginPath", "Ptr", this.hMemDC)
+
+        for element in path.Data
+        {
+            switch element.Type
+            {
+                case "MoveTo":
+                    DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y, "Ptr", 0)
+                    path.CurrentPoint := element.Point
+
+                case "LineTo":
+                    DllCall("LineTo", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y)
+                    path.CurrentPoint := element.Point
+
+                case "ArcTo":
+                    DllCall("Arc", "Ptr", this.hMemDC,
+                            "Int", element.Point.X - element.Radius,
+                            "Int", element.Point.Y - element.Radius,
+                            "Int", element.Point.X + element.Radius,
+                            "Int", element.Point.Y + element.Radius,
+                            "Int", element.StartAngle,
+                            "Int", element.SweepAngle)
+                    path.CurrentPoint := element.Point
+
+                case "QuadraticBezierTo":
+                    points := [path.CurrentPoint, element.ControlPoint, element.EndPoint]
+                    DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 3)
+                    path.CurrentPoint := element.EndPoint
+
+                case "CubicBezierTo":
+                    points := [path.CurrentPoint, element.ControlPoint1, element.ControlPoint2, element.EndPoint]
+                    DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 4)
+                    path.CurrentPoint := element.EndPoint
+
+                case "ClosePath":
+                    DllCall("CloseFigure", "Ptr", this.hMemDC)
+                    path.CurrentPoint := path.StartPoint
+            }
+        }
+
+        DllCall("EndPath", "Ptr", this.hMemDC)
+
+        if (brush != 0)
+        {
+            DllCall("FillPath", "Ptr", this.hMemDC)
+            DllCall("BeginPath", "Ptr", this.hMemDC)
+            for element in path.Data
+            {
+                switch element.Type
+                {
+                    case "MoveTo":
+                        DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y, "Ptr", 0)
+                        path.CurrentPoint := element.Point
+                    case "LineTo":
+                        DllCall("LineTo", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y)
+                        path.CurrentPoint := element.Point
+                    case "ArcTo":
+                        DllCall("Arc", "Ptr", this.hMemDC,
+                                "Int", element.Point.X - element.Radius,
+                                "Int", element.Point.Y - element.Radius,
+                                "Int", element.Point.X + element.Radius,
+                                "Int", element.Point.Y + element.Radius,
+                                "Int", element.StartAngle,
+                                "Int", element.SweepAngle)
+                        path.CurrentPoint := element.Point
+                    case "QuadraticBezierTo":
+                        points := [path.CurrentPoint, element.ControlPoint, element.EndPoint]
+                        DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 3)
+                        path.CurrentPoint := element.EndPoint
+                    case "CubicBezierTo":
+                        points := [path.CurrentPoint, element.ControlPoint1, element.ControlPoint2, element.EndPoint]
+                        DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 4)
+                        path.CurrentPoint := element.EndPoint
+                    case "ClosePath":
+                        DllCall("CloseFigure", "Ptr", this.hMemDC)
+                        path.CurrentPoint := path.StartPoint
+                }
+            }
+            DllCall("EndPath", "Ptr", this.hMemDC)
+        }
+
+        DllCall("StrokePath", "Ptr", this.hMemDC)
+
+        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
+        DllCall("DeleteObject", "Ptr", oldPen)
+
+        if (brush != 0)
+        {
+            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+            DllCall("DeleteObject", "Ptr", oldBrush)
+        }
+
+        PointsToBuffer(points)
+        {
+            buf := Buffer(8 * points.Length)
+            for i, point in points
+                NumPut("Int", point.X, "Int", point.Y, buf, (i - 1) * 8)
+            return buf
         }
     }
-
-    DllCall("EndPath", "Ptr", this.hMemDC)
-
-    if (brush != 0)
-        DllCall("FillPath", "Ptr", this.hMemDC)
-    DllCall("StrokePath", "Ptr", this.hMemDC)
-
-    DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
-    DllCall("DeleteObject", "Ptr", oldPen)
-
-    if (brush != 0)
-    {
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
-        DllCall("DeleteObject", "Ptr", oldBrush)
-    }
-}
-
 }
