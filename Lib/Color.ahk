@@ -2134,6 +2134,8 @@ class Gradient extends Array
      */
     SubGradients := []
 
+    Pens := []
+
     /**
     * Creates a new Gradient instance.
     * ___
@@ -2608,6 +2610,13 @@ class Gradient extends Array
     * @returns {Gradient}
     */
     Complement() => this.Map((col) => col := col.Complement())
+
+    CreatePens(thickness)
+    {
+        this.Pens := []
+        for col in this
+            this.Pens.Push(Pen(col, thickness))
+    }
 
 
     /**

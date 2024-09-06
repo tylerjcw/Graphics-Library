@@ -207,17 +207,40 @@ class GDIPlusObj
         if (height == 0)
             height := this.height
 
-        colorCount := gradient.Length
+        if (gradient.Pens.Length != gradient.Length)
+            gradient.CreatePens(2)
 
         for i, col in gradient
         {
-            DllCall("gdiplus\GdipFillRectangle",
+            DllCall("gdiplus\GdipDrawRectangle",
                     "Ptr", this.bufferGraphics,
-                    "Ptr", Brush(col).Ptr,
+                    "Ptr", gradient.Pens[A_Index].Ptr,
                     "Float", x + i - 1,
                     "Float", y,
                     "Float", 2,
                     "Float", height)
+        }
+    }
+
+    DrawRadialGradient(gradient, center, radius)
+    {
+        x := center.X
+        y := center.Y
+
+        if (gradient.Pens.Length != gradient.Length)
+            gradient.CreatePens(2)
+
+        for i, col in gradient
+        {
+            currentRadius := radius * (i / gradient.Length)
+            DllCall("Gdiplus\GdipDrawEllipse",
+                    "Ptr", this.bufferGraphics,
+                    "Ptr", gradient.Pens[A_Index].Ptr,
+                    "Float", x - currentRadius,
+                    "Float", y - currentRadius,
+                    "Float", currentRadius * 2,
+                    "Float", currentRadius * 2)
+            _pen := ""  ; Delete the pen
         }
     }
 
@@ -254,15 +277,45 @@ class GDIPlusObj
         DllCall("gdiplus\GdipDeleteStringFormat", "Ptr", stringFormat)
     }
 
-    CreatePath()
+    DrawPath(path, pen, brush := Brush(Color.Transparent))
     {
-        DllCall("gdiplus\GdipCreatePath", "Int", 0, "Ptr*", &path := 0)
-        return path
-    }
+        DllCall("gdiplus\GdipCreatePath", "Int", 0, "Ptr*", &gdiPath := 0)
+        DllCall("gdiplus\GdipSetPathFillMode", "Ptr", gdiPath, "Int", path.FillMode)
 
-    DrawPath(path, pen)
-    {
-        DllCall("gdiplus\GdipDrawPath", "Ptr", this.bufferGraphics, "Ptr", pen.Ptr, "Ptr", path)
+        for element in path.Data
+        {
+            switch element.Type
+            {
+                case "MoveTo":
+                    DllCall("gdiplus\GdipStartPathFigure", "Ptr", gdiPath)
+                    DllCall("gdiplus\GdipAddPathLine", "Ptr", gdiPath, "Float", element.Point.X, "Float", element.Point.Y, "Float", element.Point.X, "Float", element.Point.Y)
+                    path.CurrentPoint := element.Point
+
+                case "LineTo":
+                    DllCall("gdiplus\GdipAddPathLine", "Ptr", gdiPath, "Float", path.CurrentPoint.X, "Float", path.CurrentPoint.Y, "Float", element.Point.X, "Float", element.Point.Y)
+                    path.CurrentPoint := element.Point
+
+                case "ArcTo":
+                    DllCall("gdiplus\GdipAddPathArc", "Ptr", gdiPath, "Float", element.Point.X - element.Radius, "Float", element.Point.Y - element.Radius, "Float", element.Radius * 2, "Float", element.Radius * 2, "Float", element.StartAngle, "Float", element.SweepAngle)
+                    path.CurrentPoint := element.Point
+
+                case "QuadraticBezierTo":
+                    DllCall("gdiplus\GdipAddPathBezier", "Ptr", gdiPath, "Float", path.CurrentPoint.X, "Float", path.CurrentPoint.Y, "Float", element.ControlPoint.X, "Float", element.ControlPoint.Y, "Float", element.EndPoint.X, "Float", element.EndPoint.Y)
+                    path.CurrentPoint := element.EndPoint
+
+                case "CubicBezierTo":
+                    DllCall("gdiplus\GdipAddPathBezier", "Ptr", gdiPath, "Float", path.CurrentPoint.X, "Float", path.CurrentPoint.Y, "Float", element.ControlPoint1.X, "Float", element.ControlPoint1.Y, "Float", element.ControlPoint2.X, "Float", element.ControlPoint2.Y, "Float", element.EndPoint.X, "Float", element.EndPoint.Y)
+                    path.CurrentPoint := element.EndPoint
+
+                case "ClosePath":
+                    DllCall("gdiplus\GdipClosePathFigure", "Ptr", gdiPath)
+                    path.CurrentPoint := path.StartPoint
+            }
+        }
+
+        DllCall("gdiplus\GdipFillPath", "Ptr", this.bufferGraphics, "Ptr", brush.Ptr, "Ptr", gdiPath)
+        DllCall("gdiplus\GdipDrawPath", "Ptr", this.bufferGraphics, "Ptr", pen.Ptr, "Ptr", gdiPath)
+        DllCall("gdiplus\GdipDeletePath", "Ptr", gdiPath)
     }
 
     AddCurve(path, points, tension := 0.5)
@@ -362,15 +415,10 @@ class GDIPlusObj
 class Pen
 {
     Ptr := 0
-    Width := 1
-    Color := Color.Black
 
     __New(color := Color.Black, width := 1)
     {
-        this.Color := color
-        this.Width := width
         colorValue := color.ToInt(1)
-        OutputDebug("Creating Pen with color: " . Format("{1:X}", colorValue) . " and width: " . width)
         penPtr := 0
         result := DllCall("Gdiplus\GdipCreatePen1", "UInt", colorValue, "Float", width, "Int", 2, "Ptr*", &penPtr)
 
@@ -380,7 +428,6 @@ class Pen
         }
 
         this.Ptr := penPtr
-        OutputDebug("Pen created with Ptr: " . this.Ptr)
     }
 
     __Delete()

@@ -12,6 +12,11 @@ class Rectangle
 
     BottomRight => Point(this.TopLeft.X + this.Width, this.TopLeft.Y + this.Height)
 
+    Right  => this.BottomRight.X
+    Left   => this.TopLeft.X
+    Top    => this.TopLeft.Y
+    Bottom => this.BottomRight.Y
+
     /**
      * The area of the rectangle.
      * @returns {Number}

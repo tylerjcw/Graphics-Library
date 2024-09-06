@@ -4,6 +4,7 @@
 #Include <Color>
 #Include <Ellipse>
 #Include <Line>
+#Include <Path>
 #Include <Point>
 #Include <Polygon>
 #Include <Rectangle>

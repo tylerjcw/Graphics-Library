@@ -17,6 +17,11 @@ gdip.SetInterpolationMode(IMode.HighQualityBicubic)
 ;Load Image
 image := gdip.LoadImage("KT_s.png")
 
+pathSpeedX := 1
+pathSpeedY := 1
+
+; Create a pen for drawing
+
 ; Create shapes
 bouncingrect    := Rectangle(Point(100, 100), 100, 50)
 morphingellipse := Ellipse(Point(300, 300), 75, 50)
@@ -33,16 +38,33 @@ limebrush   := Brush(Color.Lime)
 redpen      := Pen(Color.Red, 2)
 purplepen   := Pen(Color.Purple, 6)
 yellowbrush := Brush(Color(255, 255, 0, 128))
-brushStroke := Pen(Color(128, 128, 0, 128), 20)
+pathBrush   := Brush(Color(212, 80, 77, 128))
 blackbrush  := Brush(Color.Black)
 blackPen2   := Pen(Color.Black, 2)
 blackPen5   := Pen(Color.Black, 5)
 
+; Create a new path
+myPath := Path(Point(100, 100)).MoveTo(Point(100, 200))  ; Left wall
+    .LineTo(Point(200, 100))    ; Roof peak
+    .LineTo(Point(300, 200))
+    .LineTo(Point(300, 300))    ; Right wall
+    .LineTo(Point(100, 300))    ; Base
+    .ClosePath()                ; Close the main shape
+    .MoveTo(Point(175, 250))    ; Start of door
+    .AddRectangle(Rectangle(Point(175, 250), 50, 50))
+    .MoveTo(Point(137, 250))    ; Left window
+    .AddEllipse(Ellipse(Point(137, 250), 25, 25))
+    .MoveTo(Point(262, 250))    ; Right window
+    .AddEllipse(Ellipse(Point(262, 250), 25, 25))
+    .ClosePath()
+
 ;Gradient
-spectrum := ColorArray(Color.Red, Color.Yellow, Color.Lime, Color.Aqua, Color.Blue, Color.Fuchsia)
-spectrum := spectrum.Gradient(360)
+alpha := 20
+alphaChange := 1
+spectrum := Gradient(360, Color.Red, Color.Yellow, Color.Lime, Color.Aqua, Color.Blue, Color.Fuchsia)
 
 ; Shape movement
+angle := 0
 textSpeed := 1
 newSides := 3
 rectspeedx := 4
@@ -59,7 +81,7 @@ waveWidth := 800
 waveHeight := 75
 waveSpeed := 0.2
 time := 0
-resolution := 3
+resolution := 2.5
 
 wavyBezier := Bezier([
     Vector(0, 200),
@@ -74,20 +96,6 @@ wavyBezier := Bezier([
     Vector(waveWidth, 200)
 ])
 
-; Smiley Face
-faceEllipse := Ellipse(Point(500, 500), 75, 75)
-leftEyeEllipse := Ellipse(Point(462, 462), 15, 15)
-rightEyeEllipse := Ellipse(Point(538, 462), 15, 15)
-mouthPath := gdip.CreatePath()
-mouthPoints := [
-    Point(440, 520),
-    Point(462, 543),
-    Point(500, 550),
-    Point(538, 543),
-    Point(560, 520)
-]
-gdip.AddCurve(mouthPath, mouthPoints)
-
 ; Main loop
 SetTimer(Main, 16)  ; ~60 FPS
 
@@ -99,80 +107,19 @@ Main()
 
 Update()
 {
-    global rectspeedx, rectspeedy, morphingpolygon, morphingellipse, rotatingline, bouncingrect, wavyBezier, polygonspeedx, polygonspeedy
-    global polygonradius, polygonradiusmin, polygonradiusmax, polygonradiuschange, newSides, time, spectrum, textSpeed
-    static angle := 0
-
-    ; Shift the gradient hue
-    spectrum := spectrum.Map((col) => Color(col.R, col.G, col.B, 64))
-    spectrum.ShiftHue(textSpeed)
-
-    ; Update Bezier curve (only even-indexed nodes)
-    loop wavyBezier.Points.Length
-        wavyBezier.Points[A_Index].Y := 200 + waveHeight * Sin(time + ((A_Index - 2) / 7 * 2 * 3.14159))
-
-    ; Move and bounce rectangle
-    bouncingrect.Translate(rectspeedx, rectspeedy)
-    bouncingrect.Rotate(1)
-    if (bouncingrect.TopLeft.X <= 0 || bouncingrect.TopLeft.X + bouncingrect.Width >= gdip.width)
-        rectspeedx *= -1
-    if (bouncingrect.TopLeft.Y <= 0 || bouncingrect.TopLeft.Y + bouncingrect.Height >= gdip.height)
-        rectspeedy *= -1
-
-    ; Rotate and morph ellipse
-    morphingellipse.Rotate(-1)
-    morphingellipse.SemiMajorAxis := 75 + 25 * Sin(angle * 0.05)
-    morphingellipse.SemiMinorAxis := 50 + 25 * Cos(angle * 0.05)
-
-    ; Rotate line around its midpoint
-    linecenter := rotatingline.Midpoint
-    rotatingline.Start.RotateAround(linecenter, 2)
-    rotatingline.End.RotateAround(linecenter, 2)
-
-    ; Rotate and morph polygon
-    morphingpolygon.Rotate(1)
-    if (Mod(angle, 120) == 0)
-        newsides := 2 + Mod(morphingpolygon.GetNumSides() + 1, 10)
-
-    ; Move polygon
-    morphingpolygon.Translate(polygonspeedx, polygonspeedy)
-
-    ; Grow and shrink polygon
-    polygonradius += polygonradiuschange
-    if (polygonradius >= polygonradiusmax || polygonradius <= polygonradiusmin)
-        polygonradiuschange *= -1
-
-    polygoncenter := morphingpolygon.GetCenter()
-
-    ; Store the current rotation
-    currentrotation := morphingpolygon.Rotation
-
-    ; Create new polygon with updated radius and sides
-    morphingpolygon := Polygon.CreateRegularPolygon(polygoncenter, polygonradius, newsides)
-
-    ; Apply the stored rotation to the new polygon
-    morphingpolygon.Rotate(currentrotation)
-
-    ; Check for collisions with canvas boundaries
-    polygoncenter := morphingpolygon.GetCenter()
-    if (polygoncenter.X - polygonradius <= 0 || polygoncenter.X + polygonradius >= gdip.width)
-        polygonspeedx *= -1
-    if (polygoncenter.Y - polygonradius <= 0 || polygoncenter.Y + polygonradius >= gdip.height)
-        polygonspeedy *= -1
-
-    textObj.Position.X += textSpeed
-    textSize := gdip.MeasureString(textObj.Text, textFont)
-    OutputDebug("Width: " textSize.Width "`nHeight: " textSize.Height)
-    if (textObj.Position.X + textSize.Width >= 510) or (textObj.Position.X <= 150)
-        textSpeed *= -1
-
-    angle += 1
-    time += waveSpeed
+    UpdateGradient()
+    UpdateBezier()
+    UpdateRectangle()
+    UpdateEllipse()
+    UpdateLine()
+    UpdatePolygon()
+    UpdateText()
+    UpdatePath()
 }
 
 Draw()
 {
-    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, brushStroke, wavyBezier
+    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier
     ; Clear the canvas
     gdip.Clear()
 
@@ -189,13 +136,134 @@ Draw()
 
     ; Draw the Gradient
     gdip.DrawGradient(spectrum, Point(150, 10), 30)
+    gdip.DrawRadialGradient(spectrum, Point(600, 150), 100)
 
-    ; Draw the smiley
-    gdip.DrawEllipse(faceEllipse, blackPen5, yellowBrush)
-    gdip.DrawEllipse(leftEyeEllipse, blackPen2, blackBrush)
-    gdip.DrawEllipse(rightEyeEllipse, blackPen2, blackBrush)
-    gdip.DrawPath(mouthPath, blackPen5)
+    ; Draw the Path
+    gdip.DrawPath(myPath, bluePen, pathBrush)
 
     ; Render the frame
     gdip.Render()
+}
+
+UpdateGradient()
+{
+    global alpha, alphaChange, spectrum
+
+    ; Shift the gradient's hue and alpha
+    alpha += alphaChange
+    if (alpha >= 128) or (alpha <= 10)
+        alphaChange *= -1
+    spectrum := spectrum.Map((col) => Color(col.R, col.G, col.B, alpha))
+    spectrum.ShiftHue(textSpeed * 2)
+    spectrum.CreatePens(2)
+}
+
+UpdateBezier()
+{
+    global waveHeight, time, wavyBezier, waveSpeed
+    ; Update Bezier curve
+    loop wavyBezier.Points.Length
+        wavyBezier.Points[A_Index].Y := 200 + waveHeight * Sin(time + ((A_Index - 2) / 7 * 2 * 3.14159))
+
+    time += waveSpeed
+}
+
+UpdateRectangle()
+{
+    global bouncingrect, rectspeedx, rectspeedy
+
+    ; Move and bounce rectangle
+    bouncingrect.Translate(rectspeedx, rectspeedy)
+    bouncingrect.Rotate(1)
+    if (bouncingrect.TopLeft.X <= 0 || bouncingrect.TopLeft.X + bouncingrect.Width >= gdip.width)
+        rectspeedx *= -1
+    if (bouncingrect.TopLeft.Y <= 0 || bouncingrect.TopLeft.Y + bouncingrect.Height >= gdip.height)
+        rectspeedy *= -1
+}
+
+UpdateEllipse()
+{
+    global morphingellipse, angle
+
+    ; Rotate and morph ellipse
+    morphingellipse.Rotate(-1)
+    morphingellipse.SemiMajorAxis := 75 + 25 * Sin(angle * 0.05)
+    morphingellipse.SemiMinorAxis := 50 + 25 * Cos(angle * 0.05)
+}
+
+UpdateLine()
+{
+    global rotatingline
+
+    ; Rotate line around its midpoint
+    linecenter := rotatingline.Midpoint
+    rotatingline.Start.RotateAround(linecenter, 2)
+    rotatingline.End.RotateAround(linecenter, 2)
+}
+
+UpdateText()
+{
+    global textObj, textFont, textSpeed
+
+    textObj.Position.X += textSpeed
+    textSize := gdip.MeasureString(textObj.Text, textFont)
+    if (textObj.Position.X + textSize.Width >= 510) or (textObj.Position.X <= 150)
+        textSpeed *= -1
+}
+
+UpdatePolygon()
+{
+    global morphingpolygon, polygonradius, polygonradiusmin, polygonradiusmax, polygonradiuschange, polygonspeedx, polygonspeedy, angle, newsides
+
+    polygoncenter := morphingpolygon.GetCenter()
+    nextRadius := polygonradius + polygonradiuschange
+
+    ; Calculate the next position
+    nextX := polygoncenter.X + polygonspeedx
+    nextY := polygoncenter.Y + polygonspeedy
+
+    ; Check and respond to horizontal collisions
+    if (nextX - nextRadius <= 0) or (nextX + nextRadius >= gdip.width)
+    {
+        polygonspeedx *= -1
+        nextX := Max(nextRadius, Min(gdip.width - nextRadius, nextX))
+    }
+
+    ; Check and respond to vertical collisions
+    if (nextY - nextRadius <= 0) or (nextY + nextRadius >= gdip.height)
+    {
+        polygonspeedy *= -1
+        nextY := Max(nextRadius, Min(gdip.height - nextRadius, nextY))
+    }
+
+    ; Update the polygon's position
+    morphingpolygon.Translate(nextX - polygoncenter.X, nextY - polygoncenter.Y)
+
+    ; Rotate and morph polygon
+    morphingpolygon.Rotate(1)
+    if (Mod(angle, 120) == 0)
+        newsides := 2 + Mod(morphingpolygon.GetNumSides() + 1, 10)
+
+    ; Grow and shrink polygon
+    polygonradius += polygonradiuschange
+    if (polygonradius >= polygonradiusmax) or (polygonradius <= polygonradiusmin)
+        polygonradiuschange *= -1
+
+    polygoncenter := morphingpolygon.GetCenter()
+
+    ; Store the current rotation
+    currentrotation := morphingpolygon.Rotation
+
+    ; Create new polygon with updated radius and sides
+    morphingpolygon := Polygon.CreateRegularPolygon(polygoncenter, polygonradius, newsides)
+
+    ; Apply the stored rotation to the new polygon
+    morphingpolygon.Rotate(currentrotation)
+    angle += 1
+}
+
+UpdatePath()
+{
+    global myPath, textSpeed
+    myPath.Translate(0, textSpeed * 2)
 }
