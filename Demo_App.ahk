@@ -1,12 +1,21 @@
 #Requires AutoHotkey v2.0
 
 #Include <GDI+Obj>
+#Include <GDIObj>
+#Include <Graphics\GDI+_Tools>
 
 ; Create a GUI with a canvas
 mygui  := Gui()
-canvas := mygui.Add("Picture", "w800 h600")
 mygui.OnEvent("Close", (*) => ExitApp())
+
+gdipRadio := mygui.Add("Radio", "x10 y10 Checked", "GDI+")
+gdiRadio  := myGui.Add("Radio", "x60 y10", "GDI")
+canvas    := mygui.Add("Picture", "x10 y30 w800 h600 +Border")
+canvas2   := mygui.Add("Picture", "x10 y30 w800 h600 +Border")
 mygui.Show()
+
+; Initialize GDI Object
+gdi := GDIObj(canvas2)
 
 ; Initialize GDI+ object
 gdip := GDIPlusObj(canvas)
@@ -16,6 +25,7 @@ gdip.SetInterpolationMode(IMode.HighQualityBicubic)
 
 ;Load Image
 image := gdip.LoadImage("KT_s.png")
+image2 := gdi.LoadImage("KT_s.png")
 
 pathSpeedX := 1
 pathSpeedY := 1
@@ -119,6 +129,59 @@ Update()
 
 Draw()
 {
+    if gdiRadio.Value
+    {
+        canvas2.Visible := true
+        DrawGDI()
+    }
+    else
+    {
+        canvas2.Visible := false
+    }
+
+    if gdipRadio.Value
+    {
+        canvas.Visible := true
+        DrawGDIP()
+    }
+    else
+    {
+        canvas.Visible := false
+    }
+}
+
+DrawGDI()
+{
+    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier
+    ; Clear the canvas
+    gdi.Clear()
+
+    ; Draw the shapes
+    gdi.DrawRectangle(bouncingrect, bluepen, tealbrush)
+    gdi.DrawEllipse(morphingellipse, greenpen, limebrush)
+    gdi.DrawLine(rotatingline, redpen)
+    gdi.DrawPolygon(morphingpolygon, purplepen, yellowbrush)
+    gdi.DrawBezier(wavyBezier, bluePen, resolution)
+    gdi.DrawImage(image, Rectangle(Point(10, 10), 100, 100))
+
+    ; Sadly, no images yet
+
+    ; Draw the Gradient
+    gdi.DrawGradient(spectrum, Point(150, 10), 30)
+    gdi.DrawRadialGradient(spectrum, Point(600, 150), 100)
+
+    ; Draw the text later in this one, so it shows above the gradient
+    gdi.DrawText(textObj, textFont, tealBrush)
+
+    ; Draw the path
+    gdi.DrawPath(myPath, bluePen, pathBrush)
+
+    ; Render the frame
+    gdi.Render()
+}
+
+DrawGDIP()
+{
     global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier
     ; Clear the canvas
     gdip.Clear()
@@ -128,7 +191,7 @@ Draw()
     gdip.DrawEllipse(morphingellipse, greenpen, limebrush)
     gdip.DrawLine(rotatingline, redpen)
     gdip.DrawPolygon(morphingpolygon, purplepen, yellowbrush)
-    gdip.DrawBezier2(wavyBezier, bluePen, resolution)
+    gdip.DrawBezier(wavyBezier, bluePen, resolution)
     gdip.DrawText(textObj, textFont, tealBrush)
 
     ; Draw The Image
