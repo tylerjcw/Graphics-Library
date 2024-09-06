@@ -2,25 +2,15 @@
 
 #Include Point.ahk
 
-rect := Rectangle(Point(2, 3), Point(4, 10))
-MsgBox(rect.ToString())
-
 class Rectangle
 {
     TopLeft := Point()
-    BottomRight := Point()
+    Width := 0
+    Height := 0
+    Rotation := 0
+    RotationCenter := Point()
 
-    /**
-     * The width of the rectangle.
-     * @returns {Number}
-     */
-    Width     => this.BottomRight.X - this.TopLeft.X
-
-    /**
-     * The height of the rectangle.
-     * @returns {Number}
-     */
-    Height    => this.BottomRight.Y - this.TopLeft.Y
+    BottomRight => Point(this.TopLeft.X + this.Width, this.TopLeft.Y + this.Height)
 
     /**
      * The area of the rectangle.
@@ -47,27 +37,43 @@ class Rectangle
      * @param {Number} x2 - The x-coordinate of the second point.
      * @param {Number} y2 - The y-coordinate of the second point.
      */
-    __New(args*)
+    __New(topLeft, width, height)
     {
-        this.TopLeft     := Point()
-        this.BottomRight := Point()
+        this.TopLeft := topLeft
+        this.Width := width
+        this.Height := height
+        this.RotationCenter := this.Center
+    }
 
-        if (args.Length == 2) and (args[1] is Point) and (args[2] is Point)
-        {
-            this.TopLeft.X := args[1].X
-            this.TopLeft.Y := args[1].Y
+    Rotate(rotation, rotationCenter := this.Center)
+    {
+        this.Rotation += rotation
+        this.RotationCenter := rotationCenter
 
-            this.BottomRight.X := args[2].X
-            this.BottomRight.Y := args[2].Y
+        angle := this.Rotation * 0.017453292519943295
+        cosA := Cos(angle)
+        sinA := Sin(angle)
+
+        corners := this.GetCorners()
+        this.RotatedCorners := []
+
+        for corner in corners {
+            dx := corner.X - this.RotationCenter.X
+            dy := corner.Y - this.RotationCenter.Y
+            this.RotatedCorners.Push(Point(
+                this.RotationCenter.X + dx * cosA - dy * sinA,
+                this.RotationCenter.Y + dx * sinA + dy * cosA
+            ))
         }
-        else if (args.Length ==4)
-        {
-            this.TopLeft.X := args[1]
-            this.TopLeft.Y := args[2]
+    }
 
-            this.BottomRight.X := args[3]
-            this.BottomRight.Y := args[4]
-        }
+    GetCorners() {
+        return [
+            this.TopLeft,
+            Point(this.TopLeft.X + this.Width, this.TopLeft.Y),
+            Point(this.TopLeft.X + this.Width, this.TopLeft.Y + this.Height),
+            Point(this.TopLeft.X, this.TopLeft.Y + this.Height)
+        ]
     }
 
     /**
@@ -75,15 +81,64 @@ class Rectangle
      * @param {Point} pt - The point to check.
      * @returns {Boolean}
      */
-    Contains(pt) => (this.TopLeft.X <= pt.X) and (pt.X <=this.BottomRight.X) and (this.TopLeft.Y <= pt.X) and (pt.X <= this.BottomRight.Y)
+    Contains(pt)
+    {
+        if (this.Rotation == 0)
+            return (this.TopLeft.X <= pt.X) and (pt.X <= this.BottomRight.X) and (this.TopLeft.Y <= pt.Y) and (pt.Y <= this.BottomRight.Y)
+
+        ; For rotated rectangles, transform the point back and check
+        radians := -this.Rotation * 3.14159265358979323846 / 180
+        cosTheta := Cos(radians)
+        sinTheta := Sin(radians)
+        centerX := this.Center.X
+        centerY := this.Center.Y
+
+        transformedX := centerX + (pt.X - centerX) * cosTheta - (pt.Y - centerY) * sinTheta
+        transformedY := centerY + (pt.X - centerX) * sinTheta + (pt.Y - centerY) * cosTheta
+
+        return (this.TopLeft.X <= transformedX) and (transformedX <= this.TopLeft.X + this.Width) and
+               (this.TopLeft.Y <= transformedY) and (transformedY <= this.TopLeft.Y + this.Height)
+    }
+
+    ContainsRect(other)
+    {
+        return this.TopLeft.X <= other.TopLeft.X && this.TopLeft.Y <= other.TopLeft.Y &&
+               this.TopLeft.X + this.Width >= other.TopLeft.X + other.Width &&
+               this.TopLeft.Y + this.Height >= other.TopLeft.Y + other.Height
+    }
 
     /**
      * Creates a new rectangle that is the union of this rectangle and another.
      * @param {Rectangle} rect - The other rectangle.
      * @returns {Rectangle}
      */
-    Union(rect) => Rectangle(Min(this.TopLeft.X, rect.TopLeft.X), Min(this.TopLeft.Y, rect.TopLeft.Y), Max(this.BottomRight.X, rect.BottomRight.X), Max(this.BottomRight.Y, rect.BottomRight.Y))
+    Union(rect) => Rectangle(
+        Point(Min(this.TopLeft.X, rect.TopLeft.X), Min(this.TopLeft.Y, rect.TopLeft.Y)),
+        Max(this.BottomRight.X, rect.BottomRight.X) - Min(this.TopLeft.X, rect.TopLeft.X),
+        Max(this.BottomRight.Y, rect.BottomRight.Y) - Min(this.TopLeft.Y, rect.TopLeft.Y)
+    )
 
+    Collides(other)
+    {
+        if (this.TopLeft.X < other.TopLeft.X + other.Width &&
+            this.TopLeft.X + this.Width > other.TopLeft.X &&
+            this.TopLeft.Y < other.TopLeft.Y + other.Height &&
+            this.TopLeft.Y + this.Height > other.TopLeft.Y)
+        {
+            return true
+        }
+        return false
+    }
+
+    InternalCollides(rect)
+    {
+        leftCollision   := rect.TopLeft.X <= this.TopLeft.X
+        rightCollision  := rect.TopLeft.X + rect.Width >= this.TopLeft.X + this.Width
+        topCollision    := rect.TopLeft.Y <= this.TopLeft.Y
+        bottomCollision := rect.TopLeft.Y + rect.Height >= this.TopLeft.Y + this.Height
+
+        return (leftCollision || rightCollision || topCollision || bottomCollision)
+    }
 
     /**
      * Checks if this rectangle intersects with another.
@@ -97,14 +152,18 @@ class Rectangle
      * @param {Rectangle} rect - The other rectangle.
      * @returns {Rectangle|Number} The intersection rectangle, or 0 if there is no intersection.
      */
-    Intersection(rect) => this.Intersects(rect) ? Rectangle(Max(this.TopLeft.X, rect.TopLeft.X), Max(this.TopLeft.Y, rect.TopLeft.Y), Max(this.BottomRight.X, rect.BottomRight.X), Max(this.BottomRight.Y, rect.BottomRight.Y)) : 0
+    Intersection(rect) => this.Intersects(rect) ? Rectangle(
+        Point(Max(this.TopLeft.X, rect.TopLeft.X), Max(this.TopLeft.Y, rect.TopLeft.Y)),
+        Min(this.BottomRight.X, rect.BottomRight.X) - Max(this.TopLeft.X, rect.TopLeft.X),
+        Min(this.BottomRight.Y, rect.BottomRight.Y) - Max(this.TopLeft.Y, rect.TopLeft.Y)
+    ) : 0
 
     /**
      * Expands the rectangle by a given amount in all directions.
      * @param {Number} amount - The amount to expand by.
      * @returns {Rectangle}
      */
-    Expand(amount) => Rectangle(this.TopLeft.X - amount, this.TopLeft.Y - amount, this.BottomRight.X + amount, this.BottomRight.Y + amount)
+    Expand(amount) => Rectangle(Point(this.TopLeft.X - amount, this.TopLeft.Y - amount), this.Width + 2 * amount, this.Height + 2 * amount)
 
     /**
      * Checks if the rectangle is a square.
@@ -122,13 +181,7 @@ class Rectangle
      * Returns a string representation of the rectangle.
      * @returns {String}
      */
-    ToString() => Format("Rectangle(TopLeft: {}, BottomRight: {})", this.TopLeft.ToString(), this.BottomRight.ToString())
-
-    /**
-     * Gets the corners of the rectangle.
-     * @returns {Array<Point>}
-     */
-    GetCorners() => [this.TopLeft, Point(this.BottomRight.X, this.TopLeft.Y), this.BottomRight, Point(this.TopLeft.X, this.BottomRight.Y)]
+    ToString() => Format("Rectangle(TopLeft: {}, Width: {}, Height: {}, Rotation: {})", this.TopLeft.ToString(), this.Width, this.Height, this.Rotation)
 
     /**
      * Calculates the distance from the rectangle to a point.
@@ -152,8 +205,6 @@ class Rectangle
     {
         this.TopLeft.X += dx
         this.TopLeft.Y += dy
-        this.BottomRight.X += dx
-        this.BottomRight.Y += dx
         return this
     }
 
@@ -164,12 +215,13 @@ class Rectangle
      */
     Scale(factor)
     {
-        halfWidth := this.Width * factor / 2
-        halfHeight := this.Height * factor / 2
-        this.TopLeft.X := this.Center.X - halfwidth
-        this.TopLeft.Y := this.Center.Y - halfWidth
-        this.BottomRight.X := this.Center.X + halfWidth
-        this.BottomRight.Y := this.Center.Y + halfWidth
+        newWidth := this.Width * factor
+        newHeight := this.Height * factor
+        this.TopLeft.X += (this.Width - newWidth) / 2
+        this.TopLeft.Y += (this.Height - newHeight) / 2
+        this.Width := newWidth
+        this.Height := newHeight
+        return this
     }
 
     /**
@@ -179,15 +231,12 @@ class Rectangle
      * @param {Number} height - The height of the rectangle.
      * @returns {Rectangle}
      */
-    static FromCenter(centerPoint, width, height)
+    static FromCenter(centerPoint, width, height, rotation := 0)
     {
         halfWidth := width / 2
         halfHeight := height / 2
-        return Rectangle(
-            centerPoint.X - halfWidth,
-            centerPoint.Y - halfHeight,
-            centerPoint.X + halfWidth,
-            centerPoint.Y + halfHeight
-        )
+        topLeft := Point(centerPoint.X - halfWidth, centerPoint.Y - halfHeight)
+
+        return Rectangle(topLeft, width, height)
     }
 }

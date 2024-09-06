@@ -11,7 +11,12 @@ class Bezier
         this.Points := points
     }
 
-    AddPoint(pt) => this.Points.Push(Vector.FromPoint(pt))
+    Clear() => this.Points := []
+
+    AddPoint(pt)
+    {
+        this.Points.Push(Vector.FromPoint(pt))
+    }
 
     RemovePoint(index)
     {
@@ -24,36 +29,33 @@ class Bezier
         return false
     }
 
-    Evaluate(t)
-    {
-        if this.Points.Length < 2
-            return Vector(0, 0)
-
-        points := this.Points.Clone()
-        n := points.Length
-
-        loop n - 1
-        {
-            outer := A_Index
-            loop n - outer
-            {
-                i := A_Index
-                points[i] := points[i].Lerp(points[i + 1], t)
-            }
-        }
-
-        return points[1]
-    }
-
     GetPoints(numPoints := 100)
     {
+        if this.Points.Length < 2
+            return []
+
         result := []
+        result.Capacity := numPoints
+
         step := 1 / (numPoints - 1)
+        n := this.Points.Length
 
         loop numPoints
         {
             t := (A_Index - 1) * step
-            result.Push(this.Evaluate(t))
+            tempPoints := this.Points.Clone()
+
+            loop n - 1
+            {
+                outer := A_Index
+                loop n - outer
+                {
+                    i := A_Index
+                    tempPoints[i] := tempPoints[i].Lerp(tempPoints[i + 1], t)
+                }
+            }
+
+            result.Push(tempPoints[1])
         }
 
         return result
@@ -109,7 +111,7 @@ class Bezier
         if nearestDistance <= threshold
         {
             t := (nearestIndex - 1) / (curvePoints.Length - 1)
-            newPoint := this.Evaluate(t)
+            newPoint := curvePoints[nearestIndex]
             insertIndex := 1
 
             while (insertIndex < this.Points.Length) and (t > (insertIndex - 1) / (this.Points.Length - 1))

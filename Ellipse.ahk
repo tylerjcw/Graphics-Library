@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
-
 #Include Point.ahk
+#Include Rectangle.ahk
 
 class Ellipse
 {
@@ -8,20 +8,39 @@ class Ellipse
     SemiMajorAxis := 0
     SemiMinorAxis := 0
     Rotation := 0
+    RotationCenter := Point()
 
-    __New(center, semiMajorAxis, semiMinorAxis, rotation := 0)
-    {
-        this.Center := center
-        this.SemiMajorAxis := semiMajorAxis
-        this.SemiMinorAxis := semiMinorAxis
-        this.Rotation := rotation
-    }
+    Area => (3.14159265358979323846 * this.SemiMajorAxis * this.SemiMinorAxis)
 
-    Area => 3.14159265358979323846 * this.SemiMajorAxis * this.SemiMinorAxis
-
-    Circumference => 2 * 3.14159265358979323846 * Sqrt((this.SemiMajorAxis ** 2 + this.SemiMinorAxis ** 2) / 2)
+    Circumference => (2 * 3.14159265358979323846 * Sqrt((this.SemiMajorAxis ** 2 + this.SemiMinorAxis ** 2) / 2))
 
     Eccentricity => Sqrt(1 - (this.SemiMinorAxis ** 2 / this.SemiMajorAxis ** 2))
+
+    __New(center, semiMajorAxis, semiMinorAxis)
+    {
+        this.Center := center
+        this.RotationCenter := center
+        this.SemiMajorAxis := semiMajorAxis
+        this.SemiMinorAxis := semiMinorAxis
+    }
+
+    Rotate(rotation, rotationCenter := this.Center)
+    {
+        this.Rotation += rotation
+        this.RotationCenter := rotationCenter
+
+        angle := this.Rotation * 0.017453292519943295
+        cosA := Cos(angle)
+        sinA := Sin(angle)
+
+        dx := this.Center.x - this.RotationCenter.x
+        dy := this.Center.y - this.RotationCenter.y
+
+        this.Center := Point(
+            this.rotationCenter.x + dx * cosA - dy * sinA,
+            this.rotationCenter.y + dx * sinA + dy * cosA
+        )
+    }
 
     Contains(pt)
     {

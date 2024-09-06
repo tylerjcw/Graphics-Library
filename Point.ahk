@@ -12,6 +12,21 @@ class Point
         this.Y := y
     }
 
+    RotateAround(center, angleDegrees)
+    {
+        angleRadians := angleDegrees * 3.14159265358979323846 / 180
+        cosTheta := Cos(angleRadians)
+        sinTheta := Sin(angleRadians)
+
+        dx := this.X - center.X
+        dy := this.Y - center.Y
+
+        this.X := center.X + dx * cosTheta - dy * sinTheta
+        this.Y := center.Y + dx * sinTheta + dy * cosTheta
+
+        return this
+    }
+
     /**
      * Calculates the distance between this `Point` and a given `Point`
      * @param {Point} point The point to calculate distance to

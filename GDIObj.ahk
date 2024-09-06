@@ -53,7 +53,7 @@ class GDIObj
         DllCall("BitBlt", "Ptr", this.hdc, "Int", 0, "Int", 0, "Int", w, "Int", h, "Ptr", this.hMemDC, "Int", 0, "Int", 0, "UInt", 0xCC0020) ; SRCCOPY
     }
 
-    DrawRectangle(rect, borderColor := Color.Black, fillColor := Color.White, filled := true)
+    DrawRectangle(rect, borderColor := Color.Black, fillColor := Color.White, filled := true, borderThickness := 1)
     {
         if (filled)
         {
@@ -62,7 +62,7 @@ class GDIObj
 
             if (borderColor != 0)
             {
-                pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", borderColor.ToHex("0x{B}{G}{R}").Full)
+                pen := DllCall("CreatePen", "Int", 0, "Int", borderThickness, "UInt", borderColor.ToHex("0x{B}{G}{R}").Full)
                 oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen)
             }
             else
@@ -84,13 +84,14 @@ class GDIObj
         }
         else
         {
-            pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", fillColor.ToHex("0x{B}{G}{R}").Full)
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen)
+            pen := DllCall("CreatePen", "Int", 0, "Int", borderThickness, "UInt", borderColor.ToHex("0x{B}{G}{R}").Full)
+            oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen)
             DllCall("Rectangle", "Ptr", this.hMemDC,
                                  "Int", rect.TopLeft.X,
                                  "Int", rect.TopLeft.Y,
                                  "Int", rect.BottomRight.X,
                                  "Int", rect.BottomRight.Y)
+            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
             DllCall("DeleteObject", "Ptr", pen)
         }
     }
@@ -191,43 +192,50 @@ class GDIObj
         DllCall("DeleteObject", "Ptr", pen)
     }
 
-
-    DrawGradient(x, y, width, height, angle, colors*)
+    DrawGradient(x, y, width, height, colors, angle := 0)
     {
-        ; Hard-code two colors for the gradient
-        color1 := Color(255, 0, 0)  ; Red
-        color2 := Color(0, 0, 255)  ; Blue
+        steps := colors.Length
 
-        ; Create vertex array
-        vertices := Buffer(32)
+        if (angle == 90 || angle == 270) ; Vertical gradient
+        {
+            stepHeight := height / steps
+            for i, col in colors
+            {
+                startY := y + (i - 1) * stepHeight
+                endY := startY + stepHeightBrush := DllCall("CreateSolidBrush", "UInt", col.ToHex("0x{B}{G}{R}").Full)
+                DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", hBrush)
 
-        ; Calculate gradient vector
-        angleRad := angle * 3.14159 / 180
-        dx := Cos(angleRad) * width
-        dy := Sin(angleRad) * height
+                rect := Buffer(16)
+                NumPut("Int", x, rect, 0)
+                NumPut("Int", Round(startY), rect, 4)
+                NumPut("Int", x + width, rect, 8)
+                NumPut("Int", Round(endY), rect, 12)
 
-        ; Fill vertex array
-        NumPut("Float", x, "Float", y, "UInt", color1.ToHex("0x{B}{G}{R}").Full, "Float", 0, vertices, 0)
-        NumPut("Float", x + dx, "Float", y + dy, "UInt", color2.ToHex("0x{B}{G}{R}").Full, "Float", 1, vertices, 16)
+                DllCall("FillRect", "Ptr", this.hMemDC, "Ptr", rect, "Ptr", hBrush)
+                DllCall("DeleteObject", "Ptr", hBrush)
+            }
+        }
+        else ; Horizontal gradient (default) or any other angle
+        {
+            stepWidth := width / steps
+            for i, col in colors
+            {
+                startX := x + (i - 1) * stepWidth
+                endX := startX + stepWidth
 
-        ; Create gradient rectangle
-        gRect := Buffer(16)
-        NumPut("Int", x, "Int", y, "Int", x + width, "Int", y + height, gRect)
+                hBrush := DllCall("CreateSolidBrush", "UInt", col.ToHex("0x{B}{G}{R}").Full)
+                DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", hBrush)
 
-        ; Call GradientFill
-        DllCall("GdiGradientFill"
-            , "Ptr", this.hMemDC
-            , "Ptr", vertices
-            , "UInt", 2
-            , "Ptr", gRect
-            , "UInt", 1
-            , "UInt", 0)
+                rect := Buffer(16)
+                NumPut("Int", Round(startX), rect, 0)
+                NumPut("Int", y, rect, 4)
+                NumPut("Int", Round(endX), rect, 8)
+                NumPut("Int", y + height, rect, 12)
 
-        ; Debug: Draw a red border around the gradient area
-        this.DrawRectangle(x, y, width, height, Color.Red, Color.Transparent, false)
-
-        ; Debug: Draw the gradient vector
-        this.DrawLine(x, y, x + dx, y + dy, Color.Green, 2)
+                DllCall("FillRect", "Ptr", this.hMemDC, "Ptr", rect, "Ptr", hBrush)
+                DllCall("DeleteObject", "Ptr", hBrush)
+            }
+        }
     }
 
     CreateGradientBrush(x1, y1, x2, y2, color1, color2)
@@ -241,7 +249,6 @@ class GDIObj
         NumPut("UInt", color2.ToHex("0x{B}{G}{R}").Full, pBrush, 20)
         return pBrush
     }
-
 
     DrawText(x, y, width, height, text, col := Color.Black, fontSize := 15, fontName := "Arial", align := "left")
     {

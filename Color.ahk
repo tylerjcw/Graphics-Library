@@ -312,10 +312,10 @@ class Color
     __New(colorArgs*)
     {
         colorNames := Map(
-            "Black" , "000000", "Silver", "C0C0C0", "Gray"  , "808080", "White"  , "FFFFFF",
-            "Maroon", "800000", "Red"   , "FF0000", "Purple", "800080", "Fuchsia", "FF00FF",
-            "Green" , "008000", "Lime"  , "00FF00", "Olive" , "808000", "Yellow" , "FFFF00",
-            "Navy"  , "000080", "Blue"  , "0000FF", "Teal"  , "008080", "Aqua"   , "00FFFF",
+            "Black" , "FF000000", "Silver", "FFC0C0C0", "Gray"  , "FF808080", "White"  , "FFFFFFFF",
+            "Maroon", "FF800000", "Red"   , "FFFF0000", "Purple", "FF800080", "Fuchsia", "FFFF00FF",
+            "Green" , "FF008000", "Lime"  , "FF00FF00", "Olive" , "FF808000", "Yellow" , "FFFFFF00",
+            "Navy"  , "FF000080", "Blue"  , "FF0000FF", "Teal"  , "FF008080", "Aqua"   , "FF00FFFF",
         )
 
         colorNames.Set("Transparent", "00000000")
@@ -338,7 +338,8 @@ class Color
                 this.B := col.B
                 this.A := col.A
             case 3, 4:
-                col := Color.FromRGB(colorArgs[1], colorArgs[2], colorArgs[3], colorArgs.Length == 4 ? colorArgs[4] : 255)
+                alpha := (colorArgs.Length == 4) ? colorArgs[4] : 255
+                col := Color.FromRGB(colorArgs[1], colorArgs[2], colorArgs[3], alpha)
                 this.R := col.R
                 this.G := col.G
                 this.B := col.B
@@ -363,7 +364,18 @@ class Color
     * ___
     * @returns {Integer}
     */
-    ToInt() => (this.A << 24) | (this.R << 16) | (this.G << 8) | this.B
+    ToInt(mode := 1)
+    {
+        switch mode
+        {
+            case 1: ; GDI+ ARGB Format
+                return (this.A << 24) | (this.R << 16) | (this.G << 8) | this.B
+            case 2: ; GDI BGR Format
+                return (this.B << 16) | (this.G << 8) | this.R
+            case 3: ; AHK "+Background" format
+                return this.ToHex("{R}{G}{B}").Full
+        }
+    }
 
     /**
      * Converts the stored color to Hexadecimal representation.
@@ -1095,16 +1107,18 @@ class Color
         r := 0
         g := 0
         b := 0
+        a := 0
 
         for _color in colors
         {
             r += _color.R
             g += _color.G
             b += _color.B
+            a += _color.A
         }
 
         count := colors.Length
-        return Color(Round(r / count), Round(g / count), Round(b / count))
+        return Color(Round(r / count), Round(g / count), Round(b / count), Round(a / count))
     }
 
     /**
@@ -1122,15 +1136,17 @@ class Color
         r := 1
         g := 1
         b := 1
+        a := 1
 
         for _color in colors
         {
             r *= _color.R / 255
             g *= _color.G / 255
             b *= _color.B / 255
+            a *= _color.A / 255
         }
 
-        return Color(Round(r * 255), Round(g * 255), Round(b * 255))
+        return Color(Round(r * 255), Round(g * 255), Round(b * 255), Round(a * 255))
     }
 
     /**
@@ -1167,7 +1183,7 @@ class Color
         v := rY*c1 + gY*c2 + bY*c3
         v := (v <= 0.0031308) ? v * 12.92 : 1.055 * (v ** (1.0/2.4)) - 0.055
         g := Round(v*255)
-        return Color(g, g, g)
+        return Color(g, g, g, this.A)
     }
 
     /**
@@ -1186,7 +1202,7 @@ class Color
         newG := Min(Round((r * 0.349) + (g * 0.686) + (b * 0.168)), 255)
         newB := Min(Round((r * 0.272) + (g * 0.534) + (b * 0.131)), 255)
 
-        return Color(newR, newG, newB)
+        return Color(newR, newG, newB, this.A)
     }
 
     /**
@@ -1200,7 +1216,9 @@ class Color
     {
         hsl := this.ToHSL()
         newHue := Mod(hsl.H + degrees, 360)
-        return Color.FromHSL(newHue, hsl.S, hsl.L)
+        col := Color.FromHSL(newHue, hsl.S, hsl.L)
+        col.A := this.A
+        return col
     }
 
     /**
@@ -1214,7 +1232,9 @@ class Color
     {
         hsl := this.ToHSL()
         newSaturation := Max(0, Min(100, hsl.S + amount))
-        return Color.FromHSL(hsl.H, newSaturation, hsl.L)
+        col := Color.FromHSL(hsl.H, newSaturation, hsl.L)
+        col.A := this.A
+        return col
     }
 
     /**
@@ -1246,7 +1266,9 @@ class Color
     {
         hsl := this.ToHSL()
         newLightness := Max(0, Min(100, hsl.L + amount))
-        return Color.FromHSL(hsl.H, hsl.S, newLightness)
+        col := Color.FromHSL(hsl.H, hsl.S, newLightness)
+        col.A := this.A
+        return col
     }
 
     /**
@@ -1278,7 +1300,9 @@ class Color
     {
         hwb := this.ToHWB()
         newWhiteness := Max(0, Min(100, hwb.W + amount))
-        return Color.FromHWB(hwb.H, newWhiteness, hwb.B)
+        col := Color.FromHWB(hwb.H, newWhiteness, hwb.B)
+        col.A := this.A
+        return col
     }
 
     /**
@@ -1292,7 +1316,9 @@ class Color
     {
         hwb := this.ToHWB()
         newBlackness := Max(0, Min(100, hwb.B + amount))
-        return Color.FromHWB(hwb.H, hwb.W, newBlackness)
+        col := Color.FromHWB(hwb.H, hwb.W, newBlackness)
+        col.A := this.A
+        return col
     }
 
     /**
@@ -1360,8 +1386,9 @@ class Color
         r := Round(this.R * (1 - w) + _color.R * w)
         g := Round(this.G * (1 - w) + _color.G * w)
         b := Round(this.B * (1 - w) + _color.B * w)
+        a := Round(this.A * (1 - w) + _color.A * w)
 
-        return Color.FromRGB(r, g, b)
+        return Color.FromRGB(r, g, b, a)
     }
 
     /**
