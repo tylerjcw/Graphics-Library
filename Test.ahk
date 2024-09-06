@@ -1,11 +1,6 @@
 #Requires AutoHotkey v2.0
 
-#Include GDI+Obj.ahk
-#Include Rectangle.ahk
-#Include Ellipse.ahk
-#Include Line.ahk
-#Include Polygon.ahk
-#Include Bezier.ahk
+#Include <GDI+Obj>
 
 ; Create a GUI with a canvas
 mygui  := Gui()

@@ -1,11 +1,6 @@
 #Requires AutoHotkey v2.0
 
-#Include Color.ahk
-#Include Line.ahk
-#Include Ellipse.ahk
-#Include Rectangle.ahk
-#Include Vector.ahk
-#Include Bezier.ahk
+#Include <Geometry>
 
 class GDIPlusObj
 {
