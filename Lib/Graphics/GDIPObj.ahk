@@ -87,9 +87,9 @@ class GDIPlusObj
         DllCall("SetLayeredWindowAttributes", "Ptr", gdipGui.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
 
         gdip := GDIPlusObj(gdipGui)
-        gdip.SetSmoothingMode(SMode.AntiAlias)
-        gdip.SetCompositingMode(CMode.Blended)
-        gdip.SetInterpolationMode(IMode.HighQualityBicubic)
+        gdip.SetSmoothingMode(GDIP.SMode.AntiAlias)
+        gdip.SetCompositingMode(GDIP.CMode.Blended)
+        gdip.SetInterpolationMode(GDIP.IMode.HighQualityBicubic)
         return gdip
     }
 
@@ -117,28 +117,26 @@ class GDIPlusObj
         height := rectangle.Height
 
         penWidth := 0
-        DllCall("gdiplus\GdipGetPenWidth", "Ptr", pen.Ptr, "float*", &penWidth)
+        GDIP.GetPenWidth(pen.Ptr, &penWidth)
         halfPenWidth := penWidth / 2
 
         if (rectangle.Rotation != 0)
         {
-            DllCall("gdiplus\GdipSaveGraphics", "Ptr", this.bufferGraphics, "Ptr*", &state := 0)
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", x + width / 2, "Float", y + height / 2, "Int", 0)
-            DllCall("gdiplus\GdipRotateWorldTransform", "Ptr", this.bufferGraphics, "Float", rectangle.Rotation, "Int", 0)
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", -(x + width / 2), "Float", -(y + height / 2), "Int", 0)
+            GDIP.SaveGraphics(this.bufferGraphics, &state := 0)
+            GDIP.TranslateWorldTransform(this.bufferGraphics, x + width / 2, y + height / 2)
+            GDIP.RotateWorldTransform(this.bufferGraphics, rectangle.Rotation)
+            GDIP.TranslateWorldTransform(this.bufferGraphics, -(x + width / 2), -(y + height / 2))
         }
 
         if (brush)
         {
-            DllCall("Gdiplus\GdipFillRectangle", "Ptr", this.bufferGraphics, "Ptr", brush.Ptr,
-                    "Float", x + halfPenWidth, "Float", y + halfPenWidth,
-                    "Float", width - penWidth, "Float", height - penWidth)
+            GDIP.FillRectangle(this.bufferGraphics, brush.Ptr, x + halfPenWidth, y + halfPenWidth, width - penWidth, height - penwidth)
         }
 
-        DllCall("Gdiplus\GdipDrawRectangle", "Ptr", this.bufferGraphics, "Ptr", pen.Ptr, "Float", x, "Float", y, "Float", width, "Float", height)
+        GDIP.DrawRectangle(this.bufferGraphics, pen.Ptr, x, y, width, height)
 
         if (rectangle.Rotation != 0)
-            DllCall("gdiplus\GdipRestoreGraphics", "Ptr", this.bufferGraphics, "Ptr", state)
+            GDIP.RestoreGraphics(this.bufferGraphics, state)
     }
 
     DrawEllipse(ellipse, pen := 0, brush := 0)
@@ -401,21 +399,21 @@ class GDIPlusObj
         DllCall("ReleaseDC", "Ptr", 0, "Ptr", hScreenDC)
     }
 
-    SetInterpolationMode(mode := IMode.Bicubic)
+    SetInterpolationMode(mode := GDIP.IMode.Bicubic)
     {
         this.IMode := mode
         DllCall("Gdiplus\GdipSetInterpolationMode", "Ptr", this.graphics, "Int", mode)
         DllCall("Gdiplus\GdipSetInterpolationMode", "Ptr", this.bufferGraphics, "Int", mode)
     }
 
-    SetSmoothingMode(mode := SMode.AntiAlias)
+    SetSmoothingMode(mode := GDIP.SMode.AntiAlias)
     {
         this.SMode := mode
         DllCall("Gdiplus\GdipSetSmoothingMode", "Ptr", this.graphics, "Int", mode)
         DllCall("Gdiplus\GdipSetSmoothingMode", "Ptr", this.bufferGraphics, "Int", mode)
     }
 
-    SetCompositingMode(mode := CMode.Blended)
+    SetCompositingMode(mode := GDIP.CMode.Blended)
     {
         this.CMode := mode
         DllCall("Gdiplus\GdipSetCompositingMode", "Ptr", this.graphics, "Int", mode)
@@ -448,7 +446,7 @@ class GDIPlusObj
     Clear(gc := 0, col := Color.White)
     {
         cm := this.CMode
-        this.SetCompositingMode(CMode.Overwrite)
+        this.SetCompositingMode(GDIP.CMode.Overwrite)
         DllCall("Gdiplus\GdipGraphicsClear", "Ptr", this.bufferGraphics, "UInt", col.ToInt(1))
         this.SetCompositingMode(cm)
     }

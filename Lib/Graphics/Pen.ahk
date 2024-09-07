@@ -16,7 +16,7 @@ class Pen
         this.Handle := DllCall("CreatePen", "Int", 0, "Int", width, "UInt", color.ToInt(2))
 
         ; Check if GDI+ is Started, if it is Create the Pen for it
-        if GDIPTools.IsStarted()
+        if GDIP.IsStarted()
         {
             result := DllCall("Gdiplus\GdipCreatePen1", "UInt", color.ToInt(1), "Float", width, "Int", 2, "Ptr*", &penPtr)
 
@@ -31,7 +31,7 @@ class Pen
 
     __Delete()
     {
-        if (this.Ptr) and GDIPTools.IsStarted()
+        if (this.Ptr) and GDIP.IsStarted()
             DllCall("Gdiplus\GdipDeletePen", "Ptr", this.Ptr)
 
         if (this.Handle)

@@ -1,4 +1,5 @@
 #Requires AutoHotkey v2.0
+#Include <Geometry\Point>
 
 class GDIObj
 {
@@ -22,10 +23,10 @@ class GDIObj
     {
         ; Clean up resources
         SetTimer(this.RefreshHDC.Bind(this), 0)
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", this.hOldBitmap)
-        DllCall("DeleteObject", "Ptr", this.hBitmap)
-        DllCall("DeleteDC", "Ptr", this.hMemDC)
-        DllCall("ReleaseDC", "Ptr", this.Control.Hwnd, "Ptr", this.hdc)
+        GDI.SelectObject(this.hMemDC, this.hOldBitmap)
+        GDI.DeleteObject(this.hBitmap)
+        GDI.DeleteDC(this.hMemDC)
+        GDI.ReleaseDC(this.Control.Hwnd, this.hdc)
     }
 
     static CreateWindow(width, height, options := "-Caption +ToolWindow +AlwaysOnTop")
@@ -33,7 +34,7 @@ class GDIObj
         gdipGui := Gui(options)
         gdipGui.Show("w" width " h" height)
 
-        DllCall("SetLayeredWindowAttributes", "Ptr", gdipGui.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
+        ;DllCall("SetLayeredWindowAttributes", "Ptr", gdipGui.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
 
         gdi := GDIObj(gdipGui)
         return gdi
@@ -52,84 +53,75 @@ class GDIObj
 
     RefreshHDC(*)
     {
-        this.hdc := DllCall("GetDC", "Ptr", this.Control.Hwnd, "Ptr")
+        this.hdc := GDI.GetDC(this.Control.Hwnd)
 
         ; Create a compatible DC for double buffering
-        this.hMemDC := DllCall("CreateCompatibleDC", "Ptr", this.hdc)
+        this.hMemDC := GDI.CreateCompatibleDC(this.hdc)
 
         ; Get the dimensions of the control
         this.Control.GetPos(,, &w, &h)
 
         ; Create a compatible bitmap
-        this.hBitmap := DllCall("CreateCompatibleBitmap", "Ptr", this.hdc, "Int", w, "Int", h)
+        this.hBitmap := GDI.CreateCompatibleBitmap(this.hdc, w, h)
 
         ; Select the bitmap into the memory DC
-        this.hOldBitmap := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", this.hBitmap)
+        this.hOldBitmap := GDI.SelectObject(this.hMemDC, this.hBitmap)
     }
 
     Clear(col := Color.White)
     {
         this.Control.GetPos(,, &w, &h)
-        hBrush := DllCall("CreateSolidBrush", "UInt", col.ToHex("0x{B}{G}{R}").Full)
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", hBrush)
-        DllCall("PatBlt", "Ptr", this.hMemDC, "Int", 0, "Int", 0, "Int", w, "Int", h, "UInt", 0xF00062) ; PATCOPY
-        DllCall("DeleteObject", "Ptr", hBrush)
+        hBrush := GDI.CreateSolidBrush(col.ToInt(2))
+        GDI.SelectObject(this.hMemDC, hBrush)
+        GDI.PatBlt(this.hMemDC, 0, 0, w, h, 0xF00062) ; PATCOPY
+        GDI.DeleteObject(hBrush)
     }
 
     Render()
     {
         ; Blit the contents of the memory DC to the screen
         this.Control.GetPos(,, &w, &h)
-        DllCall("BitBlt", "Ptr", this.hdc, "Int", 0, "Int", 0, "Int", w, "Int", h, "Ptr", this.hMemDC, "Int", 0, "Int", 0, "UInt", 0xCC0020) ; SRCCOPY
+        GDI.BitBlt(this.hdc, 0, 0, w, h, this.hMemDC, 0, 0, 0xCC0020) ; SRCCOPY
     }
 
     DrawRectangle(rect, pen, brush := 0)
     {
         ; Calculate all corner points
         points := []
-        points.Push([rect.TopLeft.X, rect.TopLeft.Y])
-        points.Push([rect.BottomRight.X, rect.TopLeft.Y])
-        points.Push([rect.BottomRight.X, rect.BottomRight.Y])
-        points.Push([rect.TopLeft.X, rect.BottomRight.Y])
+        points.Push(rect.TopLeft)
+        points.Push(Point(rect.BottomRight.X, rect.TopLeft.Y))
+        points.Push(rect.BottomRight)
+        points.Push(Point(rect.TopLeft.X, rect.BottomRight.Y))
 
         ; Apply rotation for drawing only
-        center := [rect.Center.X, rect.Center.Y]
-        for i, point in points
-            points[i] := RotatePoint(point, center, rect.Rotation)
+        for i, pt in points
+            points[i] := RotatePoint(pt, rect.Center, rect.Rotation)
 
         ; Draw the rotated rectangle
-        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen.Handle)
+        oldPen := GDI.SelectObject(this.hMemDC, pen.Handle)
 
         if (brush != 0)
         {
-            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", brush.Handle)
-            DllCall("Polygon", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", points.Length)
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+            oldBrush := GDI.SelectObject(this.hMemDC, brush.Handle)
+            GDI.Polygon(this.hMemDC, points)
+            GDI.SelectObject(this.hMemDC, oldBrush)
         }
         else
         {
-            DllCall("Polyline", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", points.Length)
-            DllCall("LineTo", "Ptr", this.hMemDC, "Int", points[1][1], "Int", points[1][2])  ; Close the rectangle
+            GDI.PolyLine(this.hMemDC, points)
+            GDI.LineTo(this.hMemDC, points[1].X, points[1].Y) ; Close the rectangle
         }
 
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
+        GDI.SelectObject(this.hMemDC, oldPen)
 
-        RotatePoint(point, center, angle)
+        RotatePoint(pt, center, angle)
         {
             angle := angle * (3.14159 / 180)  ; Convert to radians
-            x := point[1] - center[1]
-            y := point[2] - center[2]
-            newX := x * Cos(angle) - y * Sin(angle) + center[1]
-            newY := x * Sin(angle) + y * Cos(angle) + center[2]
-            return [newX, newY]
-        }
-
-        PointsToBuffer(points)
-        {
-            buf := Buffer(8 * points.Length)
-            for i, point in points
-                NumPut("Int", point[1], "Int", point[2], buf, (i - 1) * 8)
-            return buf
+            x := pt.X - center.X
+            y := pt.Y - center.Y
+            newX := x * Cos(angle) - y * Sin(angle) + center.X
+            newY := x * Sin(angle) + y * Cos(angle) + center.Y
+            return {X: newX, Y: newY}
         }
     }
 
@@ -148,60 +140,52 @@ class GDIObj
             rotatedX := x * Cos(ellipse.Rotation * (3.14159 / 180)) - y * Sin(ellipse.Rotation * (3.14159 / 180))
             rotatedY := x * Sin(ellipse.Rotation * (3.14159 / 180)) + y * Cos(ellipse.Rotation * (3.14159 / 180))
 
-            points.Push([ellipse.Center.X + rotatedX, ellipse.Center.Y + rotatedY])
+            points.Push(Point(ellipse.Center.X + rotatedX, ellipse.Center.Y + rotatedY))
         }
 
-        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen.Handle)
+        oldPen := GDI.SelectObject(this.hMemDC, pen.Handle)
 
         if (brush != 0)
         {
-            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", brush.Handle)
-            DllCall("Polygon", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", points.Length)
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+            oldBrush := GDI.SelectObject(this.hMemDC, brush.Handle)
+            GDI.Polygon(this.hMemDC, points)
+            GDI.SelectObject(this.hMemDC, oldBrush)
         }
         else
         {
-            DllCall("Polyline", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", points.Length)
+            GDI.PolyLine(this.hMemDC, points)
         }
 
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
-
-        PointsToBuffer(points)
-        {
-            buf := Buffer(8 * points.Length)
-            for i, pt in points
-                NumPut("Int", pt[1], "Int", pt[2], buf, (i - 1) * 8)
-            return buf
-        }
+        GDI.SelectObject(this.hMemDC, oldPen)
     }
 
     DrawLine(line, pen)
     {
-        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen.Handle)
+        oldPen := GDI.SelectObject(this.hMemDC, pen.Handle)
 
-        DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", line.Start.X, "Int", line.Start.Y, "Ptr", 0)
-        DllCall("LineTo", "Ptr", this.hMemDC, "Int", line.End.X, "Int", line.End.Y)
+        GDI.MoveToEx(this.hMemDC, line.Start.X, line.Start.Y, 0)
+        GDI.LineTo(this.hMemDC, line.End.X, line.End.Y)
 
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
+        GDI.SelectObject(this.hMemDC, oldPen)
     }
 
     DrawBezier(bezier, pen, resolution := 1)
     {
         points := bezier.GetPoints(bezier.Points.Length * resolution)  ; Get points along the Bezier curve
 
-        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen.Handle)
+        oldPen := GDI.SelectObject(this.hMemDC, pen.Handle)
 
-        DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", points[1].X, "Int", points[1].Y, "Ptr", 0)
+        GDI.MoveToEx(this.hMemDC, points[1].X, points[1].Y, 0)
 
-        for i, point in points
+        for i, pt in points
         {
             if (i > 1)
             {
-                DllCall("LineTo", "Ptr", this.hMemDC, "Int", point.X, "Int", point.Y)
+                GDI.LineTo(this.hMemDC, pt.X, pt.Y)
             }
         }
 
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
+        GDI.SelectObject(this.hMemDC, oldPen)
     }
 
     DrawGradient(gradient, pos, height := 0)
@@ -214,17 +198,13 @@ class GDIObj
 
         for i, col in gradient
         {
-            hBrush := DllCall("CreateSolidBrush", "UInt", col.ToInt(2))
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", hBrush)
+            hBrush := GDI.CreateSolidBrush(col.ToInt(2))
+            GDI.SelectObject(this.hMemDC, hBrush)
 
-            rect := Buffer(16)
-            NumPut("Int", x + i - 1, rect, 0)
-            NumPut("Int", y, rect, 4)
-            NumPut("Int", x + i + 1, rect, 8)
-            NumPut("Int", y + height, rect, 12)
+            rect := Rectangle(Point(x + i - 1, y), 3, height)
 
-            DllCall("FillRect", "Ptr", this.hMemDC, "Ptr", rect, "Ptr", hBrush)
-            DllCall("DeleteObject", "Ptr", hBrush)
+            GDI.FillRect(this.hMemDC, rect, hBrush)
+            GDI.DeleteObject(hBrush)
         }
     }
 
@@ -239,22 +219,18 @@ class GDIObj
             i := gradient.Length - A_Index + 1
             currentRadius := radius * (i / gradient.Length)
             col := gradient[i]
-            brush := DllCall("CreateSolidBrush", "UInt", col.ToHex("0x{B}{G}{R}").Full)
-            pen := DllCall("CreatePen", "Int", 0, "Int", 1, "UInt", col.ToHex("0x{B}{G}{R}").Full)
+            _brush := GDI.CreateSolidBrush(col.ToInt(2))
+            _pen := GDI.CreatePen(PenStyle.SOLID, 1, col.ToInt(2))
 
-            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", brush)
-            oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen)
+            oldBrush := GDI.SelectObject(this.hMemDC, _brush)
+            oldPen := GDI.SelectObject(this.hMemDC, _pen)
 
-            DllCall("Ellipse", "Ptr", this.hMemDC,
-                    "Int", x - currentRadius,
-                    "Int", y - currentRadius,
-                    "Int", x + currentRadius,
-                    "Int", y + currentRadius)
+            GDI.Ellipse(this.hMemDC, x - currentRadius, y - currentRadius, x + currentRadius, y + currentRadius)
 
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
-            DllCall("DeleteObject", "Ptr", brush)
-            DllCall("DeleteObject", "Ptr", pen)
+            GDI.SelectObject(this.hMemDC, oldBrush)
+            GDI.SelectObject(this.hMemDC, oldPen)
+            GDI.DeleteObject(_brush)
+            GDI.DeleteObject(_pen)
 
             A_Index += stepSize - 1
         }
@@ -262,28 +238,23 @@ class GDIObj
 
     DrawText(textObj, font, brush)
     {
-        DllCall("SetTextColor", "Ptr", this.hMemDC, "UInt", brush.Color.ToInt(2))
-        DllCall("SetBkMode", "Ptr", this.hMemDC, "Int", 1)  ; TRANSPARENT
+        GDI.SetTextColor(this.hMemDC, brush.Color.ToInt(2))
+        GDI.SetBkMode(this.hMemDC, BackgroundModes.TRANSPARENT)
+        GDI.SelectObject(this.hMemDC, font.Handle)
 
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", font.Handle)
-
-        rect := Buffer(16)
-        NumPut("Int", textObj.Position.X, rect, 0)
-        NumPut("Int", textObj.Position.Y, rect, 4)
-        NumPut("Int", textObj.Position.X + 1000, rect, 8)  ; Arbitrary large width
-        NumPut("Int", textObj.Position.Y + 1000, rect, 12)  ; Arbitrary large height
+        rect := Rectangle(textObj.Position, 1000, 1000)
 
         format := 0
         if (textObj.Alignment.Horizontal = Alignment.H.Center)
-            format |= 0x1  ; DT_CENTER
+            format |= TextAlignment.CENTER  ; DT_CENTER
         else if (textObj.Alignment.Horizontal = Alignment.H.Right)
-            format |= 0x2  ; DT_RIGHT
+            format |= TextAlignment.RIGHT  ; DT_RIGHT
         if (textObj.Alignment.Vertical = Alignment.V.Center)
-            format |= 0x4  ; DT_VCENTER
+            format |= TextAlignment.BASELINE  ; DT_VCENTER
         else if (textObj.Alignment.Vertical = Alignment.V.Bottom)
-            format |= 0x8  ; DT_BOTTOM
+            format |= TextAlignment.BOTTOM  ; DT_BOTTOM
 
-        DllCall("DrawText", "Ptr", this.hMemDC, "Str", textObj.Text, "Int", -1, "Ptr", rect, "UInt", format)
+        GDI.DrawText(this.hMemDC, textObj.Text, rect, format)
     }
 
     DrawPolygon(polygon, pen, brush := 0)
@@ -294,197 +265,142 @@ class GDIObj
         if (polygon.Rotation != 0)
         {
             center := polygon.GetCenter()
-            for i, point in points
-                points[i] := point.RotateAround(center, polygon.Rotation)
+            for i, pt in points
+                points[i] := pt.RotateAround(center, polygon.Rotation)
         }
 
-        ; Convert points to array format for PointsToBuffer
-        arrayPoints := []
-        for point in points
-            arrayPoints.Push([point.X, point.Y])
-
         ; Draw the polygon
-        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen.Handle)
+        oldPen := GDI.SelectObject(this.hMemDC, pen.Handle)
 
         if (brush != 0)
         {
-            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", brush.Handle)
-            DllCall("Polygon", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(arrayPoints), "Int", arrayPoints.Length)
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+            oldBrush := GDI.SelectObject(this.hMemDC, brush.Handle)
+            GDI.Polygon(this.hMemDC, points)
+            GDI.SelectObject(this.hMemDC, oldBrush)
         }
         else
         {
-            DllCall("Polyline", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(arrayPoints), "Int", arrayPoints.Length)
-            DllCall("LineTo", "Ptr", this.hMemDC, "Int", arrayPoints[1][1], "Int", arrayPoints[1][2])  ; Close the polygon
+            GDI.PolyLine(this.hMemDC, points)
+            GDI.LineTo(this.hMemDC, points[1].X, points[1].Y) ; Close the polygon
         }
 
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
-
-        PointsToBuffer(points)
-        {
-            buf := Buffer(8 * points.Length)
-            for i, point in points
-                NumPut("Int", point[1], "Int", point[2], buf, (i - 1) * 8)
-            return buf
-        }
+        GDI.SelectObject(this.hMemDC, oldPen)
     }
 
-    LoadImage(filename)
-    {
-        hBitmap := DllCall("LoadImage", "Ptr", 0, "Str", filename, "UInt", 0, "Int", 100, "Int", 100, "UInt", 0x10 | 0x40)
-        return hBitmap
-    }
+    LoadImage(filename) => GDI.LoadImage(0, filename, 0, 100, 100, 0x10 | 0x40)
 
     DrawImage(image, rect)
     {
-        hdcMem := DllCall("CreateCompatibleDC", "Ptr", this.hMemDC)
-        hOldBitmap := DllCall("SelectObject", "Ptr", hdcMem, "Ptr", image)
+        hdcMem := GDI.CreateCompatibleDC(this.hMemDC)
+        hOldBitmap := GDI.SelectObject(hdcMem, image)
 
         if (!rect.Width && !rect.Height)
-        {
-            DllCall("BitBlt"
-                , "Ptr", this.hMemDC
-                , "Int", rect.TopLeft.X
-                , "Int", rect.TopLeft.Y
-                , "Int", 1
-                , "Int", 1
-                , "Ptr", hdcMem
-                , "Int", 0
-                , "Int", 0
-                , "UInt", 0xCC0020) ; SRCCOPY
-        }
+            GDI.BitBlt(this.hMemDC, rect.Left, rect.Top, rect.Width, rect.Height, hdcMem, 0, 0, BinaryRaster.SRCCOPY)
         else
-        {
-            DllCall("StretchBlt"
-                , "Ptr", this.hMemDC
-                , "Int", rect.TopLeft.X
-                , "Int", rect.TopLeft.Y
-                , "Int", rect.Width
-                , "Int", rect.Height
-                , "Ptr", hdcMem
-                , "Int", 0
-                , "Int", 0
-                , "Int", 1
-                , "Int", 1
-                , "UInt", 0xCC0020) ; SRCCOPY
-        }
+            GDI.StretchBlt(this.hMemDC, rect.Left, rect.Top, rect.Width, rect.Height, hdcMem, 0, 0, 1, 1, BinaryRaster.SRCCOPY)
 
-        DllCall("SelectObject", "Ptr", hdcMem, "Ptr", hOldBitmap)
-        DllCall("DeleteDC", "Ptr", hdcMem)
+        GDI.SelectObject(hdcMem, hOldBitmap)
+        GDI.DeleteDC(hdcMem)
     }
 
     DrawPath(path, pen, brush := 0)
     {
-        oldPen := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", pen.Handle)
+        oldPen := GDI.SelectObject(this.hMemDC, pen.Handle)
 
         if (brush != 0)
         {
-            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", brush.Handle)
+            oldBrush := GDI.SelectObject(this.hMemDC, brush.Handle)
         }
         else
         {
-            oldBrush := DllCall("GetStockObject", "Int", 5)  ; NULL_BRUSH
-            oldBrush := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
+            oldBrush := GDI.GetStockObject(StockObject.NULL_BRUSH)
+            oldBrush := GDI.SelectObject(this.hMemDC, oldBrush)
         }
 
-        DllCall("SetPolyFillMode", "Ptr", this.hMemDC, "Int", path.FillMode + 1) ; WINDING : ALTERNATE
-
-        DllCall("BeginPath", "Ptr", this.hMemDC)
+        GDI.SetPolyFillMode(this.hMemDC, path.FillMode + 1)
+        GDI.BeginPath(this.hMemDC)
 
         for element in path.Data
         {
             switch element.Type
             {
                 case "MoveTo":
-                    DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y, "Ptr", 0)
+                    GDI.MoveToEx(this.hMemDC, element.Point.X, element.Point.Y, 0)
                     path.CurrentPoint := element.Point
-
                 case "LineTo":
-                    DllCall("LineTo", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y)
+                    GDI.LineTo(this.hMemDC, element.Point.X, element.Point.Y)
                     path.CurrentPoint := element.Point
-
                 case "ArcTo":
-                    DllCall("Arc", "Ptr", this.hMemDC,
-                            "Int", element.Point.X - element.Radius,
-                            "Int", element.Point.Y - element.Radius,
-                            "Int", element.Point.X + element.Radius,
-                            "Int", element.Point.Y + element.Radius,
-                            "Int", element.StartAngle,
-                            "Int", element.SweepAngle)
+                    GDI.AngleArc(this.hMemDC,
+                        element.Point.X - element.Radius,
+                        element.Point.Y - element.Radius,
+                        element.Point.X + element.Radius,
+                        element.Point.Y + element.Radius,
+                        element.StartAngle,
+                        element.SweepAngle)
                     path.CurrentPoint := element.Point
-
                 case "QuadraticBezierTo":
                     points := [path.CurrentPoint, element.ControlPoint, element.EndPoint]
-                    DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 3)
+                    GDI.PolyBezier(this.hMemDC, points)
                     path.CurrentPoint := element.EndPoint
-
                 case "CubicBezierTo":
                     points := [path.CurrentPoint, element.ControlPoint1, element.ControlPoint2, element.EndPoint]
-                    DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 4)
+                    GDI.PolyBezier(this.hMemDC, points)
                     path.CurrentPoint := element.EndPoint
-
                 case "ClosePath":
-                    DllCall("CloseFigure", "Ptr", this.hMemDC)
+                    GDI.CloseFigure(this.hMemDC)
                     path.CurrentPoint := path.StartPoint
             }
         }
 
-        DllCall("EndPath", "Ptr", this.hMemDC)
+        GDI.EndPath(this.hMemDC)
 
         if (brush != 0)
         {
-            DllCall("FillPath", "Ptr", this.hMemDC)
-            DllCall("BeginPath", "Ptr", this.hMemDC)
+            GDI.FillPath(this.hMemDC)
+            GDI.BeginPath(this.hMemDC)
+
             for element in path.Data
             {
                 switch element.Type
                 {
                     case "MoveTo":
-                        DllCall("MoveToEx", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y, "Ptr", 0)
+                        GDI.MoveToEx(this.hMemDC, element.Point.X, element.Point.Y, 0)
                         path.CurrentPoint := element.Point
                     case "LineTo":
-                        DllCall("LineTo", "Ptr", this.hMemDC, "Int", element.Point.X, "Int", element.Point.Y)
+                        GDI.LineTo(this.hMemDC, element.Point.X, element.Point.Y)
                         path.CurrentPoint := element.Point
                     case "ArcTo":
-                        DllCall("Arc", "Ptr", this.hMemDC,
-                                "Int", element.Point.X - element.Radius,
-                                "Int", element.Point.Y - element.Radius,
-                                "Int", element.Point.X + element.Radius,
-                                "Int", element.Point.Y + element.Radius,
-                                "Int", element.StartAngle,
-                                "Int", element.SweepAngle)
+                        GDI.AngleArc(this.hMemDC,
+                            element.Point.X - element.Radius,
+                            element.Point.Y - element.Radius,
+                            element.Point.X + element.Radius,
+                            element.Point.Y + element.Radius,
+                            element.StartAngle,
+                            element.SweepAngle)
                         path.CurrentPoint := element.Point
                     case "QuadraticBezierTo":
                         points := [path.CurrentPoint, element.ControlPoint, element.EndPoint]
-                        DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 3)
+                        GDI.PolyBezier(this.hMemDC, points)
                         path.CurrentPoint := element.EndPoint
                     case "CubicBezierTo":
                         points := [path.CurrentPoint, element.ControlPoint1, element.ControlPoint2, element.EndPoint]
-                        DllCall("PolyBezier", "Ptr", this.hMemDC, "Ptr", PointsToBuffer(points), "Int", 4)
+                        GDI.PolyBezier(this.hMemDC, points)
                         path.CurrentPoint := element.EndPoint
                     case "ClosePath":
-                        DllCall("CloseFigure", "Ptr", this.hMemDC)
+                        GDI.CloseFigure(this.hMemDC)
                         path.CurrentPoint := path.StartPoint
                 }
             }
-            DllCall("EndPath", "Ptr", this.hMemDC)
+            GDI.EndPath(this.hMemDC)
         }
 
-        DllCall("StrokePath", "Ptr", this.hMemDC)
-
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldPen)
+        GDI.StrokePath(this.hMemDC)
+        GDI.SelectObject(this.hMemDC, oldPen)
 
         if (brush != 0)
         {
-            DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", oldBrush)
-        }
-
-        PointsToBuffer(points)
-        {
-            buf := Buffer(8 * points.Length)
-            for i, point in points
-                NumPut("Int", point.X, "Int", point.Y, buf, (i - 1) * 8)
-            return buf
+            GDI.SelectObject(this.hMemDC, oldBrush)
         }
     }
 
@@ -496,18 +412,16 @@ class GDIObj
      */
     BitBltScreen(sourceRect, destRect)
     {
-        hScreenDC := DllCall("GetDC", "Ptr", 0, "Ptr")
+        hScreenDC := GDI.GetDC(0)
+        GDI.SetStretchBltMode(this.hMemDC, StretchMode.HALFTONE) ; HALFTONE for better quality
+        GDI.StretchBlt(this.hMemDC,
+            destRect.TopLeft.X, destRect.TopLeft.Y,
+            destRect.Width, destRect.Height,
+            hScreenDC,
+            sourceRect.TopLeft.X, sourceRect.TopLeft.Y,
+            sourceRect.Width, sourceRect.Height,
+            BinaryRaster.SRCCOPY)
 
-        DllCall("SetStretchBltMode", "Ptr", this.hMemDC, "Int", 4) ; HALFTONE for better quality
-
-        DllCall("StretchBlt", "Ptr", this.hMemDC,
-            "Int", destRect.TopLeft.X, "Int", destRect.TopLeft.Y,
-            "Int", destRect.Width, "Int", destRect.Height,
-            "Ptr", hScreenDC,
-            "Int", sourceRect.TopLeft.X, "Int", sourceRect.TopLeft.Y,
-            "Int", sourceRect.Width, "Int", sourceRect.Height,
-            "UInt", 0x00CC0020) ; SRCCOPY
-
-        DllCall("ReleaseDC", "Ptr", 0, "Ptr", hScreenDC)
+        GDI.ReleaseDC(0, hScreenDC)
     }
 }

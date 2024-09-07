@@ -4,7 +4,7 @@
 #Include <Geometry>
 #Include <ColorPicker>
 
-; Create a GUI with a canvas
+; Create a GUI with a picture
 mygui  := Gui()
 mygui.OnEvent("Close", (*) => ExitApp())
 
@@ -14,7 +14,7 @@ canvasHeight := 600
 gdipRadio := mygui.Add("Radio", "x10 y10 Checked", "GDI+")
 gdiRadio  := myGui.Add("Radio", "x60 y10", "GDI")
 colSelect := myGui.Add("Picture", "x110 y9 w50 h15 +Border +BackgroundFFFFFF")
-canvas    := mygui.Add("Picture", "x10 y30 w" canvasWidth " h" canvasHeight " +Border")
+picture    := mygui.Add("Picture", "x10 y30 w" canvasWidth " h" canvasHeight " +Border")
 colText   := mygui.Add("Text", "x170 y10", "<-- Click to select ellipse fill color")
 colSelect.OnEvent("Click", UpdateEllipseBrush)
 gdipRadio.OnEvent("Click", ActivateGDIP)
@@ -22,18 +22,18 @@ gdiRadio.OnEvent("Click", ActivateGDI)
 mygui.Show()
 
 colSelectGdip := GDIPlusObj(colSelect)
-colSelectGdip.SetCompositingMode(CMode.Blended)
-colSelectGdip.SetSmoothingMode(SMode.AntiAlias)
-colSelectGdip.SetInterpolationMode(IMode.HighQualityBicubic)
+colSelectGdip.SetCompositingMode(GDIP.CMode.Blended)
+colSelectGdip.SetSmoothingMode(GDIP.SMode.AntiAlias)
+colSelectGdip.SetInterpolationMode(GDIP.IMode.HighQualityBicubic)
 
 ; Initialize GDI+ object
-gdip := GDIPlusObj(canvas)
-gdip.SetCompositingMode(CMode.Blended)
-gdip.SetSmoothingMode(SMode.AntiAlias)
-gdip.SetInterpolationMode(IMode.HighQualityBicubic)
+canvas := GDIPlusObj(picture)
+canvas.SetCompositingMode(GDIP.CMode.Blended)
+canvas.SetSmoothingMode(GDIP.SMode.AntiAlias)
+canvas.SetInterpolationMode(GDIP.IMode.HighQualityBicubic)
 
 ;Load Image - This needs to be re-loaded when the Rendering Mode is switched
-image := gdip.LoadImage("KT_s.png")
+image := canvas.LoadImage("KT_s.png")
 
 pathSpeedX := 1
 pathSpeedY := 1
@@ -45,7 +45,7 @@ rotatingline    := Line(Point(50, 500), Point(200, 550))
 morphingpolygon := Polygon.CreateRegularPolygon(Point(600, 300), 50, 6)
 textObj         := Text("Well, Hello There!", Point(160, 15), 0)
 textFont        := Font("Maple Mono", 16)
-textSize        := gdip.MeasureString(textObj.Text, textFont)
+textSize        := canvas.MeasureString(textObj.Text, textFont)
 
 ; Create pens and brushes
 bluepen     := Pen(Color.Blue, 2)
@@ -137,8 +137,8 @@ Main()
 
 Update()
 {
-    global gdip
-    gdip.Clear()
+    global canvas
+    canvas.Clear()
     UpdateGradient()
     UpdateBezier()
     UpdateRectangle()
@@ -152,52 +152,52 @@ Update()
 
 Draw()
 {
-    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier, destRect, mouseRect, destRect
+    global canvas, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier, destRect, mouseRect, destRect
 
     ; Draw the Shapes
-    gdip.DrawRectangle(bouncingrect, bluepen, tealbrush)
-    gdip.DrawEllipse(morphingellipse, greenpen, limebrush)
-    gdip.DrawLine(rotatingline, redpen)
-    gdip.DrawPolygon(morphingpolygon, purplepen, yellowbrush)
-    gdip.DrawBezier(wavyBezier, bluePen, resolution)
+    canvas.DrawRectangle(bouncingrect, bluepen, tealbrush)
+    canvas.DrawEllipse(morphingellipse, greenpen, limebrush)
+    canvas.DrawLine(rotatingline, redpen)
+    canvas.DrawPolygon(morphingpolygon, purplepen, yellowbrush)
+    canvas.DrawBezier(wavyBezier, bluePen, resolution)
 
     ; Draw The Image
-    gdip.DrawImage(image, Rectangle(Point(10, 10), 100, 100))
+    canvas.DrawImage(image, Rectangle(Point(10, 10), 100, 100))
 
     ; Draw the Gradient
-    gdip.DrawGradient(spectrum, Point(150, 10), 30)
-    gdip.DrawRadialGradient(redToWhite, Point(600, 500), 50)
-    gdip.DrawRadialGradient(spectrum, Point(600, 150), 100)
+    canvas.DrawGradient(spectrum, Point(150, 10), 30)
+    canvas.DrawRadialGradient(redToWhite, Point(600, 500), 50)
+    canvas.DrawRadialGradient(spectrum, Point(600, 150), 100)
 
     ; Draw the Text
-    gdip.DrawText(textObj, textFont, tealBrush)
+    canvas.DrawText(textObj, textFont, tealBrush)
 
     ; Draw the Path
-    gdip.DrawPath(myPath, bluePen, pathBrush)
+    canvas.DrawPath(myPath, bluePen, pathBrush)
 
     ; Draw the BitBlt Screen capture
-    gdip.BitBltScreen(mouseRect, destRect)
+    canvas.BitBltScreen(mouseRect, destRect)
 
     ; Render the frame
-    gdip.Render()
+    canvas.Render()
 }
 
 ActivateGDI(*)
 {
-    global gdip, image
-    gdip := GDIObj(canvas)
-    gdip.SetRefreshRate(60)
-    image := gdip.LoadImage("KT_s.bmp")
+    global canvas, image
+    canvas := GDIObj(picture)
+    canvas.SetRefreshRate(60)
+    image := canvas.LoadImage("KT_s.bmp")
 }
 
 ActivateGDIP(*)
 {
-    global gdip, image
-    gdip := GDIPlusObj(canvas)
-    gdip.SetCompositingMode(CMode.Blended)
-    gdip.SetSmoothingMode(SMode.AntiAlias)
-    gdip.SetInterpolationMode(IMode.HighQualityBicubic)
-    image := gdip.LoadImage("KT_s.png")
+    global canvas, image
+    canvas := GDIPlusObj(picture)
+    canvas.SetCompositingMode(GDIP.CMode.Blended)
+    canvas.SetSmoothingMode(GDIP.SMode.AntiAlias)
+    canvas.SetInterpolationMode(GDIP.IMode.HighQualityBicubic)
+    image := canvas.LoadImage("KT_s.png")
 }
 
 UpdateEllipseBrush(*)

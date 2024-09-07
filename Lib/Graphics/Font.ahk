@@ -37,7 +37,7 @@ class Font
             , "Str", family)
 
 
-        if GDIPTools.IsStarted()
+        if GDIP.IsStarted()
         {
             fontPtr := 0
             familyPtr := 0
@@ -59,9 +59,9 @@ class Font
 
     __Delete()
     {
-        if (this.Ptr) and GDIPTools.IsStarted()
+        if (this.Ptr) and GDIP.IsStarted()
             DllCall("Gdiplus\GdipDeleteFont", "Ptr", this.Ptr)
-        if (this.Family) and GDIPTools.IsStarted()
+        if (this.Family) and GDIP.IsStarted()
             DllCall("Gdiplus\GdipDeleteFontFamily", "Ptr", this.Family)
         if (this.Handle)
             DllCall("DeleteObject", "Ptr", this.Handle)

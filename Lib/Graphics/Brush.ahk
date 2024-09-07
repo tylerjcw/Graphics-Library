@@ -12,7 +12,7 @@ class Brush
 
         this.Handle := DllCall("CreateSolidBrush", "UInt", color.ToInt(2))
 
-        if GDIPTools.IsStarted()
+        if GDIP.IsStarted()
         {
             brushPtr := 0
             result := DllCall("Gdiplus\GdipCreateSolidFill", "UInt", color.ToInt(1), "Ptr*", &brushPtr)
@@ -28,7 +28,7 @@ class Brush
 
     __Delete()
     {
-        if (this.Ptr) and GDIPTools.IsStarted()
+        if (this.Ptr) and GDIP.IsStarted()
             DllCall("Gdiplus\GdipDeleteBrush", "Ptr", this.Ptr)
 
         if (this.Handle)
