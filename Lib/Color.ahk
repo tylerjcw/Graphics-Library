@@ -358,6 +358,16 @@ class Color
      */
     IsEqual(col) => this.ToInt() == col.ToInt()
 
+    static FromMouse()
+    {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&x, &y)
+        col := Color(PixelGetColor(x, y))
+        CoordMode("Mouse", "Client")
+        MsgBox(col.Full)
+        return col
+    }
+
     /**
     * Converts the Color object to its integer representation.
     * The integer includes all four channels: Alpha, Red, Green, and Blue.

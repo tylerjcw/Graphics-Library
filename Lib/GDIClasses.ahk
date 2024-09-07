@@ -1,5 +1,6 @@
 #Requires AutoHotkey v2.0
 #Include <Geometry>
+#Include <GDI+Obj>
 
 class Pen
 {
@@ -13,19 +14,25 @@ class Pen
         this.Width := width
         colorValue := color.ToInt(1)
         penPtr := 0
-        result := DllCall("Gdiplus\GdipCreatePen1", "UInt", colorValue, "Float", width, "Int", 2, "Ptr*", &penPtr)
 
-        if (result != 0 || !penPtr)
+        ; Check if GDI+ is Started
+
+        if GDIPlusObj.IsStarted()
         {
-            throw Error("Failed to create GDI+ Pen. Error code: " . result . ". Color: " . colorValue . ", Width: " . width)
-        }
+               result := DllCall("Gdiplus\GdipCreatePen1", "UInt", colorValue, "Float", width, "Int", 2, "Ptr*", &penPtr)
 
-        this.Ptr := penPtr
+               if (result != 0 || !penPtr)
+               {
+                throw Error("Failed to create GDI+ Pen. Error code: " . result . ". Color: " . colorValue . ", Width: " . width)
+            }
+
+            this.Ptr := penPtr
+        }
     }
 
     __Delete()
     {
-        if (this.Ptr)
+        if (this.Ptr) and GDIPlusObj.IsStarted()
             DllCall("Gdiplus\GdipDeletePen", "Ptr", this.Ptr)
     }
 }
@@ -37,22 +44,25 @@ class Brush
     __New(color := Color.Black)
     {
         this.Color := color
-        OutputDebug("Creating Brush with color: " . Format("{1:X}", color.ToInt(1)))
-        brushPtr := 0
-        result := DllCall("Gdiplus\GdipCreateSolidFill", "UInt", color.ToInt(1), "Ptr*", &brushPtr)
-
-        if (result != 0 || !brushPtr)
+        if GDIPlusObj.IsStarted()
         {
-            throw Error("Failed to create GDI+ Brush. Error code: " . result . ". Color: " . color.ToInt(1))
-        }
+            OutputDebug("Creating Brush with color: " . Format("{1:X}", color.ToInt(1)))
+            brushPtr := 0
+            result := DllCall("Gdiplus\GdipCreateSolidFill", "UInt", color.ToInt(1), "Ptr*", &brushPtr)
 
-        this.Ptr := brushPtr
-        OutputDebug("Brush created with Ptr: " . this.Ptr)
+            if (result != 0 || !brushPtr)
+            {
+                throw Error("Failed to create GDI+ Brush. Error code: " . result . ". Color: " . color.ToInt(1))
+            }
+
+            this.Ptr := brushPtr
+            OutputDebug("Brush created with Ptr: " . this.Ptr)
+        }
     }
 
     __Delete()
     {
-        if (this.Ptr)
+        if (this.Ptr) and GDIPlusObj.IsStarted()
             DllCall("Gdiplus\GdipDeleteBrush", "Ptr", this.Ptr)
     }
 }
@@ -61,31 +71,38 @@ class Font
 {
     Ptr := 0
     Family := 0
+    Name := ""
+    Size := 12
 
     __New(family := "Arial", size := 12, style := 0)
     {
-        fontPtr := 0
-        familyPtr := 0
-        result := DllCall("Gdiplus\GdipCreateFontFamilyFromName", "Str", family, "Ptr", 0, "Ptr*", &familyPtr)
-        if (result != 0 || !familyPtr)
+        this.Name := family
+        this.Size := size
+        if GDIPlusObj.IsStarted()
         {
-            throw Error("Failed to create GDI+ Font Family. Error code: " . result . ". Family: " . family)
-        }
-        this.family := familyPtr
+            fontPtr := 0
+            familyPtr := 0
+            result := DllCall("Gdiplus\GdipCreateFontFamilyFromName", "Str", family, "Ptr", 0, "Ptr*", &familyPtr)
+            if (result != 0 || !familyPtr)
+            {
+                throw Error("Failed to create GDI+ Font Family. Error code: " . result . ". Family: " . family)
+            }
+            this.family := familyPtr
 
-        result := DllCall("Gdiplus\GdipCreateFont", "Ptr", this.family, "Float", size, "Int", style, "Int", 0, "Ptr*", &fontPtr)
-        if (result != 0 || !fontPtr)
-        {
-            throw Error("Failed to create GDI+ Font. Error code: " . result . ". Size: " . size . ", Style: " . style)
+            result := DllCall("Gdiplus\GdipCreateFont", "Ptr", this.family, "Float", size, "Int", style, "Int", 0, "Ptr*", &fontPtr)
+            if (result != 0 || !fontPtr)
+            {
+                throw Error("Failed to create GDI+ Font. Error code: " . result . ". Size: " . size . ", Style: " . style)
+            }
+            this.ptr := fontPtr
         }
-        this.ptr := fontPtr
     }
 
     __Delete()
     {
-        if (this.Ptr)
+        if (this.Ptr) and GDIPlusObj.IsStarted()
             DllCall("Gdiplus\GdipDeleteFont", "Ptr", this.Ptr)
-        if (this.Family)
+        if (this.Family) and GDIPlusObj.IsStarted()
             DllCall("Gdiplus\GdipDeleteFontFamily", "Ptr", this.Family)
     }
 }

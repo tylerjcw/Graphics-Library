@@ -5,17 +5,62 @@
 class GDIObj
 {
     hdc := ""
+    Control := ""
+    hMemDC := ""
+    hBitmap := ""
+    hOldBitmap := ""
+    RefreshTimer := ""
 
-    __New(ctrl)
+    HDCRefreshRate := 60000
+
+    __New(Control)
     {
-        this.ctrl := ctrl
-        this.hdc := DllCall("GetDC", "Ptr", this.ctrl.Hwnd, "Ptr")
+        SetTimer(this.RefreshHDC.Bind(this), this.HDCRefreshRate)
+        this.Control := Control
+        this.RefreshHDC()
+    }
+
+    __Delete()
+    {
+        ; Clean up resources
+        SetTimer(this.RefreshHDC.Bind(this), 0)
+        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", this.hOldBitmap)
+        DllCall("DeleteObject", "Ptr", this.hBitmap)
+        DllCall("DeleteDC", "Ptr", this.hMemDC)
+        DllCall("ReleaseDC", "Ptr", this.Control.Hwnd, "Ptr", this.hdc)
+    }
+
+    static CreateWindow(width, height, options := "-Caption +ToolWindow +AlwaysOnTop")
+    {
+        gdipGui := Gui(options)
+        gdipGui.Show("w" width " h" height)
+
+        DllCall("SetLayeredWindowAttributes", "Ptr", gdipGui.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
+
+        gdi := GDIObj(gdipGui)
+        return gdi
+    }
+
+    SetTransColor(color)
+    {
+        WinSetTransColor(color.ToInt(3), "ahk_id" this.Control.Hwnd)
+    }
+
+    SetRefreshRate(newRate)
+    {
+        this.HDCRefreshRate := 1000 * newRate
+        SetTimer(this.RefreshHDC.Bind(this), this.HDCRefreshRate)
+    }
+
+    RefreshHDC(*)
+    {
+        this.hdc := DllCall("GetDC", "Ptr", this.Control.Hwnd, "Ptr")
 
         ; Create a compatible DC for double buffering
         this.hMemDC := DllCall("CreateCompatibleDC", "Ptr", this.hdc)
 
         ; Get the dimensions of the control
-        this.ctrl.GetPos(,, &w, &h)
+        this.Control.GetPos(,, &w, &h)
 
         ; Create a compatible bitmap
         this.hBitmap := DllCall("CreateCompatibleBitmap", "Ptr", this.hdc, "Int", w, "Int", h)
@@ -24,18 +69,9 @@ class GDIObj
         this.hOldBitmap := DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", this.hBitmap)
     }
 
-    __Delete()
-    {
-        ; Clean up resources
-        DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", this.hOldBitmap)
-        DllCall("DeleteObject", "Ptr", this.hBitmap)
-        DllCall("DeleteDC", "Ptr", this.hMemDC)
-        DllCall("ReleaseDC", "Ptr", this.ctrl.Hwnd, "Ptr", this.hdc)
-    }
-
     Clear(col := Color.White)
     {
-        this.ctrl.GetPos(,, &w, &h)
+        this.Control.GetPos(,, &w, &h)
         hBrush := DllCall("CreateSolidBrush", "UInt", col.ToHex("0x{B}{G}{R}").Full)
         DllCall("SelectObject", "Ptr", this.hMemDC, "Ptr", hBrush)
         DllCall("PatBlt", "Ptr", this.hMemDC, "Int", 0, "Int", 0, "Int", w, "Int", h, "UInt", 0xF00062) ; PATCOPY
@@ -45,7 +81,7 @@ class GDIObj
     Render()
     {
         ; Blit the contents of the memory DC to the screen
-        this.ctrl.GetPos(,, &w, &h)
+        this.Control.GetPos(,, &w, &h)
         DllCall("BitBlt", "Ptr", this.hdc, "Int", 0, "Int", 0, "Int", w, "Int", h, "Ptr", this.hMemDC, "Int", 0, "Int", 0, "UInt", 0xCC0020) ; SRCCOPY
     }
 
@@ -192,7 +228,7 @@ class GDIObj
         y := pos.Y
 
         if (height == 0)
-            height := this.ctrl.Pos.H
+            height := this.Control.Pos.H
 
         for i, col in gradient
         {
@@ -476,5 +512,28 @@ class GDIObj
                 NumPut("Int", point.X, "Int", point.Y, buf, (i - 1) * 8)
             return buf
         }
+    }
+
+    /**
+     * Bit Blits an area of the screen defined by the source rectangle to the
+     * destination rectangle on the control.
+     * @param sourceRect The source rectangle, in screen coordinates
+     * @param destRect The destination rectangle, in control coordinates
+     */
+    BitBltScreen(sourceRect, destRect)
+    {
+        hScreenDC := DllCall("GetDC", "Ptr", 0, "Ptr")
+
+        DllCall("SetStretchBltMode", "Ptr", this.hMemDC, "Int", 4) ; HALFTONE for better quality
+
+        DllCall("StretchBlt", "Ptr", this.hMemDC,
+            "Int", destRect.TopLeft.X, "Int", destRect.TopLeft.Y,
+            "Int", destRect.Width, "Int", destRect.Height,
+            "Ptr", hScreenDC,
+            "Int", sourceRect.TopLeft.X, "Int", sourceRect.TopLeft.Y,
+            "Int", sourceRect.Width, "Int", sourceRect.Height,
+            "UInt", 0x00CC0020) ; SRCCOPY
+
+        DllCall("ReleaseDC", "Ptr", 0, "Ptr", hScreenDC)
     }
 }

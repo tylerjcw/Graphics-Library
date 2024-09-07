@@ -7,6 +7,7 @@ class GDIPlusObj
 {
     ; Private properties
     hWnd := 0
+    Control := 0
     graphics := 0
     width := 0
     height := 0
@@ -54,6 +55,7 @@ class GDIPlusObj
     __New(control)
     {
         this.hWnd := control.Hwnd
+        this.Control := control
 
         ; Get control dimensions
         x := 0, y := 0, w := 0, h := 0
@@ -80,6 +82,42 @@ class GDIPlusObj
             DllCall("Gdiplus\GdipDisposeImage", "Ptr", this.bufferBitmap)
         if (this.graphics)
             DllCall("Gdiplus\GdipDeleteGraphics", "Ptr", this.graphics)
+    }
+
+    static CreateWindow(width, height, options := "-Caption +ToolWindow +AlwaysOnTop")
+    {
+        gdipGui := Gui(options)
+        gdipGui.Show("w" width " h" height)
+
+        DllCall("SetLayeredWindowAttributes", "Ptr", gdipGui.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
+
+        gdip := GDIPlusObj(gdipGui)
+        gdip.SetSmoothingMode(SMode.AntiAlias)
+        gdip.SetCompositingMode(CMode.Blended)
+        gdip.SetInterpolationMode(IMode.HighQualityBicubic)
+        return gdip
+    }
+
+    static IsStarted()
+    {
+        token := Buffer(A_PtrSize, 0)
+        startupInput := Buffer(3 * A_PtrSize, 0)
+        NumPut("UInt", 1, startupInput)
+
+        result := DllCall("gdiplus\GdiplusStartup", "Ptr*", token.Ptr, "Ptr", startupInput.Ptr, "Ptr", 0)
+
+        if (result = 0)
+        {
+            DllCall("gdiplus\GdiplusShutdown", "Ptr", NumGet(token, "Ptr"))
+            return true
+        }
+
+        return false
+    }
+
+    SetTransColor(color)
+    {
+        WinSetTransColor(color.ToInt(3), "ahk_id" this.Control.Hwnd)
     }
 
     DrawLine(line, pen)
@@ -335,6 +373,54 @@ class GDIPlusObj
                     "Float", rect.TopLeft.Y,
                     "Float", rect.Width,
                     "Float", rect.Height)
+    }
+
+    /**
+     * Bit Blits an area of the screen defined by the source rectangle to the
+     * destination rectangle on the control.
+     * @param sourceRect The source rectangle, in screen coordinates
+     * @param destRect The destination rectangle, in control coordinates
+     */
+    BitBltScreen(sourceRect, destRect)
+    {
+        ; Create a compatible DC and bitmap
+        hScreenDC := DllCall("GetDC", "Ptr", 0, "Ptr")
+        hMemDC := DllCall("CreateCompatibleDC", "Ptr", hScreenDC)
+        hBitmap := DllCall("CreateCompatibleBitmap", "Ptr", hScreenDC, "Int", sourceRect.Width, "Int", sourceRect.Height, "Ptr")
+        DllCall("SelectObject", "Ptr", hMemDC, "Ptr", hBitmap)
+
+        ; Copy the screen area to our bitmap
+        DllCall("BitBlt", "Ptr", hMemDC, "Int", 0, "Int", 0, "Int", sourceRect.Width, "Int", sourceRect.Height,
+                         "Ptr", hScreenDC, "Int", sourceRect.TopLeft.X, "Int", sourceRect.TopLeft.Y, "UInt", 0x00CC0020) ; SRCCOPY
+
+        ; Create a GDI+ bitmap from our bitmap
+        DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hBitmap, "Ptr", 0, "Ptr*", &pBitmap:=0)
+
+        ; Save the current graphics state
+        DllCall("gdiplus\GdipSaveGraphics", "Ptr", this.bufferGraphics, "Ptr*", &state:=0)
+
+        ; Set up the transformation for rotation
+        DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", destRect.Center.X, "Float", destRect.Center.Y, "Int", 0)
+        DllCall("gdiplus\GdipRotateWorldTransform", "Ptr", this.bufferGraphics, "Float", destRect.Rotation, "Int", 0)
+        DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", -destRect.Center.X, "Float", -destRect.Center.Y, "Int", 0)
+
+        ; Draw the captured bitmap onto our buffer with rotation applied
+        DllCall("gdiplus\GdipDrawImageRectRect", "Ptr", this.bufferGraphics,
+            "Ptr", pBitmap,
+            "Float", destRect.TopLeft.X, "Float", destRect.TopLeft.Y,
+            "Float", destRect.Width, "Float", destRect.Height,
+            "Float", 0, "Float", 0,
+            "Float", sourceRect.Width, "Float", sourceRect.Height,
+            "Int", 2, "Ptr", 0, "Ptr", 0, "Ptr", 0)
+
+        ; Restore the graphics state
+        DllCall("gdiplus\GdipRestoreGraphics", "Ptr", this.bufferGraphics, "Ptr", state)
+
+        ; Clean up
+        DllCall("gdiplus\GdipDisposeImage", "Ptr", pBitmap)
+        DllCall("DeleteObject", "Ptr", hBitmap)
+        DllCall("DeleteDC", "Ptr", hMemDC)
+        DllCall("ReleaseDC", "Ptr", 0, "Ptr", hScreenDC)
     }
 
     SetInterpolationMode(mode := IMode.Bicubic)

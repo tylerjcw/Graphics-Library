@@ -32,7 +32,7 @@ gdip.SetCompositingMode(CMode.Blended)
 gdip.SetSmoothingMode(SMode.AntiAlias)
 gdip.SetInterpolationMode(IMode.HighQualityBicubic)
 
-;Load Image
+;Load Image - This needs to be re-loaded when the Rendering Mode is switched
 image := gdip.LoadImage("KT_s.png")
 
 pathSpeedX := 1
@@ -63,6 +63,13 @@ blackPen5   := Pen(Color.Black, 5)
 colSelectGdip.DrawRectangle(Rectangle(Point(0, 0), colSelectGdip.width, colSelectGdip.height), Pen(Color.Lime, 1), limeBrush)
 colSelectGdip.Render()
 
+; Destination and source rectangles for screen Bit Blit, and other variables
+destRect := Rectangle(Point(10, 120), 64, 64)
+mouseRect := Rectangle(Point(0, 0), 64, 64)
+bltSpeedX := 3
+bltSpeedY := 3
+bltRotation := 2
+
 ; Create a new path
 myPath := Path(Point(100, 100)).MoveTo(Point(100, 200))  ; Left wall
     .LineTo(Point(200, 100))    ; Roof peak
@@ -82,6 +89,9 @@ myPath := Path(Point(100, 100)).MoveTo(Point(100, 200))  ; Left wall
 alpha := 20
 alphaChange := 1
 spectrum := Gradient(360, Color.Red, Color.Yellow, Color.Lime, Color.Aqua, Color.Blue, Color.Fuchsia)
+
+; Red to White
+redToWhite := Gradient(100, Color.Red, Color("00FFFFFF"))
 
 ; Shape movement
 angle := 0
@@ -127,6 +137,8 @@ Main()
 
 Update()
 {
+    global gdip
+    gdip.Clear()
     UpdateGradient()
     UpdateBezier()
     UpdateRectangle()
@@ -135,14 +147,12 @@ Update()
     UpdatePolygon()
     UpdateText()
     UpdatePath()
+    UpdateBitBlt()
 }
 
 Draw()
 {
-    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier
-
-    ; Clear the canvas
-    gdip.Clear()
+    global gdip, bluepen, tealbrush, greenpen, limebrush, redpen, purplepen, yellowbrush, wavyBezier, destRect, mouseRect, destRect
 
     ; Draw the Shapes
     gdip.DrawRectangle(bouncingrect, bluepen, tealbrush)
@@ -156,6 +166,7 @@ Draw()
 
     ; Draw the Gradient
     gdip.DrawGradient(spectrum, Point(150, 10), 30)
+    gdip.DrawRadialGradient(redToWhite, Point(600, 500), 50)
     gdip.DrawRadialGradient(spectrum, Point(600, 150), 100)
 
     ; Draw the Text
@@ -163,6 +174,9 @@ Draw()
 
     ; Draw the Path
     gdip.DrawPath(myPath, bluePen, pathBrush)
+
+    ; Draw the BitBlt Screen capture
+    gdip.BitBltScreen(mouseRect, destRect)
 
     ; Render the frame
     gdip.Render()
@@ -172,6 +186,7 @@ ActivateGDI(*)
 {
     global gdip, image
     gdip := GDIObj(canvas)
+    gdip.SetRefreshRate(60)
     image := gdip.LoadImage("KT_s.bmp")
 }
 
@@ -202,6 +217,21 @@ UpdateEllipseBrush(*)
         colSelectGdip.DrawRectangle(Rectangle(Point(0, 0), colSelectGdip.width, colSelectGdip.height), Pen(col, 1), limebrush)
         colSelectGdip.Render()
     }
+}
+
+UpdateBitBlt()
+{
+    global mouseRect, destRect, bltSpeedX, bltSpeedY, bltRotation
+    CoordMode("Mouse", "Screen")
+    MouseGetPos(&xPos, &yPos)
+    CoordMode("Mouse", "Window")
+    mouseRect := Rectangle(Point(xPos - 32, yPos - 32), 64, 64)
+    destRect.Rotate(bltRotation)
+    destRect.Translate(bltSpeedX, bltSpeedY)
+    if (destRect.TopLeft.X <= 0 || destRect.TopLeft.X + destRect.Width >= canvasWidth)
+        bltSpeedX *= -1
+    if (destRect.TopLeft.Y <= 0 || destRect.TopLeft.Y + destRect.Height >= canvasHeight)
+        bltSpeedY *= -1
 }
 
 UpdateGradient()
