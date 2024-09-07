@@ -22,7 +22,6 @@ class Polygon
             y := center.Y + radius * Sin(i * angle)
             vertices.Push(Point(x, y))
         }
-        OutputDebug("Made polygon")
         return Polygon(vertices)
     }
 

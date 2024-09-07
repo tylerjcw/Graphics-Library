@@ -1,28 +1,28 @@
 #Requires AutoHotkey v2.0
-#Include <GDITools>
 
 class Pen
 {
-    Ptr := 0
-    Color := Color.Black
-    Width := 1
+    Ptr    := 0
+    Handle := 0
+    Color  := Color.Black
+    Width  := 1
 
     __New(color := Color.Black, width := 1)
     {
+        local penPtr := 0
         this.Color := color
         this.Width := width
-        colorValue := color.ToInt(1)
-        penPtr := 0
 
-        ; Check if GDI+ is Started
+        this.Handle := DllCall("CreatePen", "Int", 0, "Int", width, "UInt", color.ToInt(2))
 
+        ; Check if GDI+ is Started, if it is Create the Pen for it
         if GDIPTools.IsStarted()
         {
-               result := DllCall("Gdiplus\GdipCreatePen1", "UInt", colorValue, "Float", width, "Int", 2, "Ptr*", &penPtr)
+            result := DllCall("Gdiplus\GdipCreatePen1", "UInt", color.ToInt(1), "Float", width, "Int", 2, "Ptr*", &penPtr)
 
-               if (result != 0 || !penPtr)
-               {
-                throw Error("Failed to create GDI+ Pen. Error code: " . result . ". Color: " . colorValue . ", Width: " . width)
+            if (result != 0 || !penPtr)
+            {
+                throw Error("Failed to create GDI+ Pen. Error code: " result ". Color: " color.ToInt(1) ", Width: " width)
             }
 
             this.Ptr := penPtr
@@ -33,22 +33,13 @@ class Pen
     {
         if (this.Ptr) and GDIPTools.IsStarted()
             DllCall("Gdiplus\GdipDeletePen", "Ptr", this.Ptr)
+
+        if (this.Handle)
+            DllCall("DeleteObject", "Ptr", this.Handle)
     }
 
-    static IsGdiPlusStarted()
+    UpdatePen()
     {
-        token := Buffer(A_PtrSize, 0)
-        startupInput := Buffer(3 * A_PtrSize, 0)
-        NumPut("UInt", 1, startupInput)
 
-        result := DllCall("gdiplus\GdiplusStartup", "Ptr*", token.Ptr, "Ptr", startupInput.Ptr, "Ptr", 0)
-
-        if (result = 0)
-        {
-            DllCall("gdiplus\GdiplusShutdown", "Ptr", NumGet(token, "Ptr"))
-            return true
-        }
-
-        return false
     }
 }

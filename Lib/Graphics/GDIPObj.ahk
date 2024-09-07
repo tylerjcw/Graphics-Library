@@ -17,7 +17,6 @@ class GDIPlusObj
 
     static __New()
     {
-        OutputDebug("Initializing GDI+")
         if (!DllCall("LoadLibrary", "str", "gdiplus", "UPtr"))
         {
             throw Error("Could not load GDI+ library")
@@ -32,7 +31,6 @@ class GDIPlusObj
             throw Error("Gdiplus failed to start. Please ensure you have gdiplus on your system")
         }
         GDIPlusObj.token := pToken
-        OutputDebug("pToken: " pToken)
     }
 
     static __Delete()

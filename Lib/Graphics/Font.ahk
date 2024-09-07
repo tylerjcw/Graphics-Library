@@ -1,17 +1,42 @@
 #Requires AutoHotkey v2.0
-#Include <GDITools>
 
 class Font
 {
-    Ptr := 0
+    Ptr    := 0
     Family := 0
-    Name := ""
-    Size := 12
+    Handle := 0
+    Name   := ""
+    Size   := 12
+    Style  := 0
 
     __New(family := "Arial", size := 12, style := 0)
     {
-        this.Name := family
-        this.Size := size
+        this.Name  := family
+        this.Size  := size
+        this.Style := style
+
+        weight    := (style & 1) ? 700 : 400
+        italic    := (style & 2) ? true : false
+        underline := (style & 4) ? true : false
+        strikeout := (style & 8) ? true : false
+
+        this.Handle := DllCall("CreateFont"
+            , "Int", -size
+            , "Int", 0
+            , "Int", 0
+            , "Int", 0
+            , "Int", weight
+            , "UInt", italic
+            , "UInt", underline
+            , "UInt", strikeout
+            , "UInt", 1  ; DEFAULT_CHARSET
+            , "UInt", 0  ; OUT_DEFAULT_PRECIS
+            , "UInt", 0  ; CLIP_DEFAULT_PRECIS
+            , "UInt", 0  ; DEFAULT_QUALITY
+            , "UInt", 0  ; DEFAULT_PITCH | FF_DONTCARE
+            , "Str", family)
+
+
         if GDIPTools.IsStarted()
         {
             fontPtr := 0
@@ -38,6 +63,8 @@ class Font
             DllCall("Gdiplus\GdipDeleteFont", "Ptr", this.Ptr)
         if (this.Family) and GDIPTools.IsStarted()
             DllCall("Gdiplus\GdipDeleteFontFamily", "Ptr", this.Family)
+        if (this.Handle)
+            DllCall("DeleteObject", "Ptr", this.Handle)
     }
 }
 

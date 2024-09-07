@@ -20,6 +20,11 @@ class GDIPTools
     }
 }
 
+Class GDITools
+{
+
+}
+
 class CMode
 {
     static Blended   => 0
