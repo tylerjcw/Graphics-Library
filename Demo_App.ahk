@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
-#Include <GDI+Obj>
-#Include <GDIObj>
+#Include <Graphics>
+#Include <Geometry>
 #Include <ColorPicker>
 
 ; Create a GUI with a canvas
@@ -43,7 +43,7 @@ bouncingrect    := Rectangle(Point(100, 100), 100, 50)
 morphingellipse := Ellipse(Point(300, 300), 75, 50)
 rotatingline    := Line(Point(50, 500), Point(200, 550))
 morphingpolygon := Polygon.CreateRegularPolygon(Point(600, 300), 50, 6)
-textObj         := TextObject("Well, Hello There!", Point(160, 15), 0)
+textObj         := Text("Well, Hello There!", Point(160, 15), 0)
 textFont        := Font("Maple Mono", 16)
 textSize        := gdip.MeasureString(textObj.Text, textFont)
 

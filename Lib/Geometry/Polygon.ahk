@@ -1,7 +1,5 @@
 #Requires AutoHotkey v2.0
 
-#Include Point.ahk
-
 class Polygon
 {
     Vertices := []

@@ -1,8 +1,5 @@
 #Requires AutoHotkey v2.0
 
-#Include <Geometry>
-#Include <GDIClasses>
-
 class GDIPlusObj
 {
     ; Private properties
@@ -96,23 +93,6 @@ class GDIPlusObj
         gdip.SetCompositingMode(CMode.Blended)
         gdip.SetInterpolationMode(IMode.HighQualityBicubic)
         return gdip
-    }
-
-    static IsStarted()
-    {
-        token := Buffer(A_PtrSize, 0)
-        startupInput := Buffer(3 * A_PtrSize, 0)
-        NumPut("UInt", 1, startupInput)
-
-        result := DllCall("gdiplus\GdiplusStartup", "Ptr*", token.Ptr, "Ptr", startupInput.Ptr, "Ptr", 0)
-
-        if (result = 0)
-        {
-            DllCall("gdiplus\GdiplusShutdown", "Ptr", NumGet(token, "Ptr"))
-            return true
-        }
-
-        return false
     }
 
     SetTransColor(color)

@@ -1,5 +1,7 @@
 #Requires AutoHotkey v2.0
-#Include <GDI+Obj>
+
+#Include <Graphics>
+#Include <Geometry>
 
 Magnifier.Start()
 

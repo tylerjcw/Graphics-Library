@@ -1,6 +1,4 @@
-#Include <Point>
-#Include <Ellipse>
-#Include <Rectangle>
+#Requires AutoHotkey v2.0
 
 class Path {
     Data := []

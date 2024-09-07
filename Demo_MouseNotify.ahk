@@ -1,8 +1,7 @@
 #Requires AutoHotkey v2.0
 
-#Include <GDIObj>
+#Include <Graphics>
 #Include <Geometry>
-#Include <GDIClasses>
 
 notify := MouseNotify(15, 15, Color.White) ; White will be the background color and transparency color
 Hotkey("W", (*) => notify.Toggle("msg1", "Test 1", Color.Purple))
@@ -58,7 +57,7 @@ class MouseNotify
         y := 5
         for key, msg in this.messages
         {
-            textObj := TextObject(msg.text, Point(25, y))
+            textObj := Text(msg.text, Point(25, y))
             this.Gdi.DrawText(textObj, this.font, Brush(msg.color))
             this.Gdi.DrawRectangle(Rectangle(Point(5, y), 15, 15), Pen(msg.color.Invert(), 1), Brush(msg.color))
             y += 20
