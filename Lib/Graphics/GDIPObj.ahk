@@ -25,7 +25,8 @@ class GDIPlusObj
         si := Buffer(A_PtrSize = 4 ? 20:32, 0) ; sizeof(GdiplusStartupInputEx) = 20, 32
         NumPut("uint", 0x2, si)
         NumPut("uint", 0x4, si, A_PtrSize = 4 ? 16:24)
-        DllCall("gdiplus\GdiplusStartup", "UPtr*", &pToken:=0, "Ptr", si, "UPtr", 0)
+        GDIP.Startup(&pToken := 0, si, 0)
+
         if (!pToken)
         {
             throw Error("Gdiplus failed to start. Please ensure you have gdiplus on your system")
@@ -37,7 +38,7 @@ class GDIPlusObj
     {
         if (GDIPlusObj.token)
         {
-            DllCall("gdiplus\GdiplusShutdown", "UPtr", GDIPlusObj.token)
+            GDIP.Shutdown(GDIPlusObj.token)
             hModule := DllCall("GetModuleHandle", "str", "gdiplus", "UPtr")
             if (hModule)
             {
@@ -59,12 +60,12 @@ class GDIPlusObj
         this.height := h
 
         ; Create graphics object from window handle
-        DllCall("Gdiplus\GdipCreateFromHWND", "Ptr", this.hWnd, "Ptr*", &graphics := 0)
+        GDIP.CreateFromHWND(this.hWnd, &graphics := 0)
         this.graphics := graphics
 
         ; Create buffer bitmap and graphics
-        DllCall("Gdiplus\GdipCreateBitmapFromGraphics", "Int", this.width, "Int", this.height, "Ptr", this.graphics, "Ptr*", &bufferBitmap := 0)
-        DllCall("Gdiplus\GdipGetImageGraphicsContext", "Ptr", bufferBitmap, "Ptr*", &bufferGraphics := 0)
+        GDIP.CreateBitmapFromGraphics(this.width, this.height, this.graphics, &bufferBitmap := 0)
+        GDIP.GetImageGraphicsContext(bufferBitmap, &bufferGraphics := 0)
         this.bufferBitmap := bufferBitmap
         this.bufferGraphics := bufferGraphics
     }
@@ -72,11 +73,11 @@ class GDIPlusObj
     __Delete()
     {
         if (this.bufferGraphics)
-            DllCall("Gdiplus\GdipDeleteGraphics", "Ptr", this.bufferGraphics)
+            GDIP.DeleteGraphics(this.bufferGraphics)
         if (this.bufferBitmap)
-            DllCall("Gdiplus\GdipDisposeImage", "Ptr", this.bufferBitmap)
+            GDIP.DisposeImage(this.bufferBitmap)
         if (this.graphics)
-            DllCall("Gdiplus\GdipDeleteGraphics", "Ptr", this.graphics)
+            GDIP.DeleteGraphics(this.graphics)
     }
 
     static CreateWindow(width, height, options := "-Caption +ToolWindow +AlwaysOnTop")
@@ -84,13 +85,13 @@ class GDIPlusObj
         gdipGui := Gui(options)
         gdipGui.Show("w" width " h" height)
 
-        DllCall("SetLayeredWindowAttributes", "Ptr", gdipGui.Hwnd, "UInt", 0, "UChar", 255, "UInt", 2)
+        LayeredWindow.SetLayeredWindowAttributes(gdipGui.Hwnd, 0, 255, 2)
 
-        gdip := GDIPlusObj(gdipGui)
-        gdip.SetSmoothingMode(GDIP.SMode.AntiAlias)
-        gdip.SetCompositingMode(GDIP.CMode.Blended)
-        gdip.SetInterpolationMode(GDIP.IMode.HighQualityBicubic)
-        return gdip
+        canvas := GDIPlusObj(gdipGui)
+        canvas.SetSmoothingMode(GDIP.SMode.AntiAlias)
+        canvas.SetCompositingMode(GDIP.CMode.Blended)
+        canvas.SetInterpolationMode(GDIP.IMode.HighQualityBicubic)
+        return canvas
     }
 
     SetTransColor(color)
@@ -98,16 +99,7 @@ class GDIPlusObj
         WinSetTransColor(color.ToInt(3), "ahk_id" this.Control.Hwnd)
     }
 
-    DrawLine(line, pen)
-    {
-        DllCall("Gdiplus\GdipDrawLine",
-                "Ptr", this.bufferGraphics,
-                "Ptr", pen.Ptr,
-                "Float", line.Start.X,
-                "Float", line.Start.Y,
-                "Float", line.End.X,
-                "Float", line.End.Y)
-    }
+    DrawLine(line, pen) => GDIP.DrawLine(this.bufferGraphics, pen.Ptr, line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 
     DrawRectangle(rectangle, pen, brush := 0)
     {
@@ -148,19 +140,19 @@ class GDIPlusObj
 
         if (ellipse.Rotation != 0)
         {
-            DllCall("gdiplus\GdipSaveGraphics", "Ptr", this.bufferGraphics, "Ptr*", &state := 0)
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", ellipse.Center.X, "Float", ellipse.Center.Y, "Int", 0)
-            DllCall("gdiplus\GdipRotateWorldTransform", "Ptr", this.bufferGraphics, "Float", ellipse.Rotation, "Int", 0)
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", -ellipse.Center.X, "Float", -ellipse.Center.Y, "Int", 0)
+            GDIP.SaveGraphics(this.bufferGraphics, &state := 0)
+            GDIP.TranslateWorldTransform(this.bufferGraphics, ellipse.Center.X, ellipse.Center.Y)
+            GDIP.RotateWorldTransform(this.bufferGraphics, ellipse.Rotation)
+            GDIP.TranslateWorldTransform(this.bufferGraphics, -ellipse.Center.X, -ellipse.Center.Y)
         }
 
         if (brush)
-            DllCall("Gdiplus\GdipFillEllipse", "Ptr", this.bufferGraphics, "Ptr", brush.Ptr, "Float", x, "Float", y, "Float", width, "Float", height)
+            GDIP.FillEllipse(this.bufferGraphics, brush.Ptr, x, y, width, height)
 
-        DllCall("Gdiplus\GdipDrawEllipse", "Ptr", this.bufferGraphics, "Ptr", pen.Ptr, "Float", x, "Float", y, "Float", width, "Float", height)
+        GDIP.DrawEllipse(this.bufferGraphics, pen.Ptr, x, y, width, height)
 
         if (ellipse.Rotation != 0)
-            DllCall("gdiplus\GdipRestoreGraphics", "Ptr", this.bufferGraphics, "Ptr", state)
+            GDIP.RestoreGraphics(this.bufferGraphics, state)
     }
 
     DrawPolygon(polygon, pen, brush := 0)
@@ -174,9 +166,9 @@ class GDIPlusObj
         }
 
         if (brush)
-            DllCall("Gdiplus\GdipFillPolygon", "Ptr", this.bufferGraphics, "Ptr", brush.Ptr, "Ptr", points, "Int", pointsCount, "Int", 0)
+            GDIP.FillPolygon(this.bufferGraphics, brush.Ptr, points, pointsCount)
 
-        DllCall("Gdiplus\GdipDrawPolygon", "Ptr", this.bufferGraphics, "Ptr", pen.Ptr, "Ptr", points, "Int", pointsCount)
+        GDIP.DrawPolygon(this.bufferGraphics, pen.Ptr, points, pointsCount)
     }
 
     DrawBezier(bezier, _pen, resolution := 1)
@@ -192,7 +184,7 @@ class GDIPlusObj
             NumPut("Float", point.X, "Float", point.Y, pointsBuffer, (i - 1) * 8)
         }
 
-        DllCall("gdiplus\GdipDrawLines", "Ptr", this.bufferGraphics, "Ptr", _pen.Ptr, "Ptr", pointsBuffer, "Int", points.Length)
+        GDIP.DrawLines(this.bufferGraphics, _pen.Ptr, pointsBuffer, points.Length)
     }
 
 
@@ -208,15 +200,7 @@ class GDIPlusObj
             gradient.CreatePens(2)
 
         for i, col in gradient
-        {
-            DllCall("gdiplus\GdipDrawRectangle",
-                    "Ptr", this.bufferGraphics,
-                    "Ptr", gradient.Pens[A_Index].Ptr,
-                    "Float", x + i - 1,
-                    "Float", y,
-                    "Float", 2,
-                    "Float", height)
-        }
+            GDIP.DrawRectangle(this.bufferGraphics, gradient.Pens[i].Ptr, x + i - 1, y, 2, height)
     }
 
     DrawRadialGradient(gradient, center, radius)
@@ -230,48 +214,34 @@ class GDIPlusObj
         for i, col in gradient
         {
             currentRadius := radius * (i / gradient.Length)
-            DllCall("Gdiplus\GdipDrawEllipse",
-                    "Ptr", this.bufferGraphics,
-                    "Ptr", gradient.Pens[A_Index].Ptr,
-                    "Float", x - currentRadius,
-                    "Float", y - currentRadius,
-                    "Float", currentRadius * 2,
-                    "Float", currentRadius * 2)
-            _pen := ""  ; Delete the pen
+            GDIP.DrawEllipse(this.bufferGraphics, gradient.Pens[A_Index].Ptr, x - currentRadius, y - currentRadius, currentRadius * 2, currentRadius * 2)
         }
     }
 
     DrawText(textObj, font, brush)
     {
         stringFormat := 0
-        DllCall("gdiplus\GdipCreateStringFormat", "Int", 0, "Int", 0, "Ptr*", &stringFormat)
-        DllCall("gdiplus\GdipSetStringFormatAlign", "Ptr", stringFormat, "Int", textObj.Alignment.Horizontal)
-        DllCall("gdiplus\GdipSetStringFormatLineAlign", "Ptr", stringFormat, "Int", textObj.Alignment.Vertical)
+        GDIP.CreateStringFormat(0, 0, &stringFormat)
+        GDIP.SetStringFormatAlign(stringFormat, textObj.Alignment.Horizontal)
+        GDIP.SetStringFormatLineAlign(stringFormat, textObj.Alignment.Vertical)
 
         rect := Buffer(16, 0)
         NumPut("Float", textObj.Position.X, "Float", textObj.Position.Y, rect)
 
         if (textObj.Rotation != 0)
         {
-            DllCall("gdiplus\GdipSaveGraphics", "Ptr", this.bufferGraphics, "Ptr*", &state := 0)
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", textObj.Position.X, "Float", textObj.Position.Y, "Int", 0)
-            DllCall("gdiplus\GdipRotateWorldTransform", "Ptr", this.bufferGraphics, "Float", textObj.Rotation, "Int", 0)
-            DllCall("gdiplus\GdipTranslateWorldTransform", "Ptr", this.bufferGraphics, "Float", -textObj.Position.X, "Float", -textObj.Position.Y, "Int", 0)
+            GDIP.SaveGraphics(this.bufferGraphics, &state := 0)
+            GDIP.TranslateWorldTransform(this.bufferGraphics, textObj.Position.X, textObj.Position.Y)
+            GDIP.RotateWorldTransform(this.bufferGraphics, textObj.Rotation)
+            GDIP.TranslateWorldTransform(this.bufferGraphics, -textObj.Position.X, -textObj.Position.Y)
         }
 
-        DllCall("Gdiplus\GdipDrawString"
-            , "Ptr", this.bufferGraphics
-            , "Str", textObj.Text
-            , "Int", -1
-            , "Ptr", font.Ptr
-            , "Ptr", rect
-            , "Ptr", stringFormat
-            , "Ptr", brush.Ptr)
+        GDIP.DrawString(this.bufferGraphics, textObj.Text, -1, font.Ptr, rect, stringFormat, brush.Ptr)
 
         if (textObj.Rotation != 0)
-            DllCall("gdiplus\GdipRestoreGraphics", "Ptr", this.bufferGraphics, "Ptr", state)
+            GDIP.RestoreGraphics(this.bufferGraphics, state)
 
-        DllCall("gdiplus\GdipDeleteStringFormat", "Ptr", stringFormat)
+        GDIP.DeleteStringFormat(stringFormat)
     }
 
     DrawPath(path, pen, brush := Brush(Color.Transparent))
@@ -328,27 +298,16 @@ class GDIPlusObj
 
     LoadImage(filename)
     {
-        image := 0
-        DllCall("Gdiplus\GdipLoadImageFromFile", "Str", filename, "Ptr*", &image)
+        GDIP.LoadImageFromFile(filename, &image := 0)
         return image
     }
 
     DrawImage(image, rect)
     {
         if (!rect.Width && !rect.Height)
-            DllCall("gdiplus\GdipDrawImage",
-                    "Ptr", this.bufferGraphics,
-                    "Ptr", image,
-                    "Float", rect.TopLeft.X,
-                    "Float", rect.TopLeft.Y)
+            GDIP.DrawImage(this.bufferGraphics, image, rect.TopLeft.X, rect.TopLeft.Y)
         else
-            DllCall("gdiplus\GdipDrawImageRect",
-                    "Ptr", this.bufferGraphics,
-                    "Ptr", image,
-                    "Float", rect.TopLeft.X,
-                    "Float", rect.TopLeft.Y,
-                    "Float", rect.Width,
-                    "Float", rect.Height)
+            GDIP.DrawImageRect(this.bufferGraphics, image, rect.TopLeft.X, rect.TopLeft.Y, rect.Width, rect.Height)
     }
 
     /**

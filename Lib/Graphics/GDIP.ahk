@@ -62,7 +62,7 @@ class GDIP
      * @param {Integer} fillMode - The fill mode of the path.
      * @returns {Pointer} A pointer to the new GraphicsPath object.
      */
-    static CreatePath2(points, types, count, fillMode) => (path := 0, DllCall("gdiplus\GdipCreatePath2", "Ptr", points, "Ptr", types, "Int", count, "Int", fillMode, "Ptr*", &path), path)
+    static CreatePath2(points, types, count, fillMode, &path) => DllCall("gdiplus\GdipCreatePath2", "Ptr", points, "Ptr", types, "Int", count, "Int", fillMode, "Ptr*", &path)
 
     /**
      * Creates a GraphicsPath object from an array of integer points and types.
@@ -72,14 +72,14 @@ class GDIP
      * @param {Integer} fillMode - The fill mode of the path.
      * @returns {Pointer} A pointer to the new GraphicsPath object.
      */
-    static CreatePath2I(points, types, count, fillMode) => (path := 0, DllCall("gdiplus\GdipCreatePath2I", "Ptr", points, "Ptr", types, "Int", count, "Int", fillMode, "Ptr*", &path), path)
+    static CreatePath2I(points, types, count, fillMode, &path) => DllCall("gdiplus\GdipCreatePath2I", "Ptr", points, "Ptr", types, "Int", count, "Int", fillMode, "Ptr*", &path)
 
     /**
      * Creates a copy of a GraphicsPath object.
      * @param {Pointer} path - A pointer to the GraphicsPath object to clone.
      * @returns {Pointer} A pointer to the cloned GraphicsPath object.
      */
-    static ClonePath(path) => (clonePath := 0, DllCall("gdiplus\GdipClonePath", "Ptr", path, "Ptr*", &clonePath), clonePath)
+    static ClonePath(path, &clonePath) => DllCall("gdiplus\GdipClonePath", "Ptr", path, "Ptr*", &clonePath)
 
     /**
      * Deletes a GraphicsPath object.
@@ -100,7 +100,7 @@ class GDIP
      * @param {Pointer} path - A pointer to the GraphicsPath object.
      * @returns {Integer} The number of points in the path.
      */
-    static GetPointCount(path) => (count := 0, DllCall("gdiplus\GdipGetPointCount", "Ptr", path, "Int*", &count), count)
+    static GetPointCount(path, &count) => DllCall("gdiplus\GdipGetPointCount", "Ptr", path, "Int*", &count)
 
     /**
      * Gets the types of all points in a GraphicsPath object.
@@ -134,7 +134,7 @@ class GDIP
      * @param {Pointer} path - A pointer to the GraphicsPath object.
      * @returns {Integer} The fill mode of the path.
      */
-    static GetPathFillMode(path) => (fillMode := 0, DllCall("gdiplus\GdipGetPathFillMode", "Ptr", path, "Int*", &fillMode), fillMode)
+    static GetPathFillMode(path, &fillMode) => DllCall("gdiplus\GdipGetPathFillMode", "Ptr", path, "Int*", &fillMode)
 
     /**
      * Sets the fill mode of a GraphicsPath object.
@@ -1438,7 +1438,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromStream(stream, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromStream", "Ptr", stream, "Ptr*", bitmap)
+    static CreateBitmapFromStream(stream, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromStream", "Ptr", stream, "Ptr*", &bitmap)
 
     /**
      * Creates a Bitmap object from a file.
@@ -1446,7 +1446,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromFile(filename, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromFile", "Ptr", filename, "Ptr*", bitmap)
+    static CreateBitmapFromFile(filename, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromFile", "Ptr", filename, "Ptr*", &bitmap)
 
     /**
      * Creates a Bitmap object from a block of pixel data.
@@ -1458,7 +1458,18 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromScan0(width, height, stride, format, scan0, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width, "Int", height, "Int", stride, "Int", format, "Ptr", scan0, "Ptr*", bitmap)
+    static CreateBitmapFromScan0(width, height, stride, format, scan0, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", width, "Int", height, "Int", stride, "Int", format, "Ptr", scan0, "Ptr*", &bitmap)
+
+    /**
+     * Sets the line alignment for a string format object.
+     * @param {Ptr} format - Pointer to the StringFormat object.
+     * @param {Integer} align - The line alignment value.
+     *        0 = Top
+     *        1 = Center
+     *        2 = Bottom
+     * @returns {Integer} - Returns 0 on success, non-zero on failure.
+     */
+    static SetStringFormatLineAlign(format, align) => DllCall("gdiplus\GdipSetStringFormatLineAlign", "Ptr", format, "Int", align)
 
     /**
      * Creates a Bitmap object from a Graphics object.
@@ -1468,7 +1479,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromGraphics(width, height, target, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromGraphics", "Int", width, "Int", height, "Ptr", target, "Ptr*", bitmap)
+    static CreateBitmapFromGraphics(width, height, target, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromGraphics", "Int", width, "Int", height, "Ptr", target, "Ptr*", &bitmap)
 
     /**
      * Creates a Bitmap object from a DirectDraw surface.
@@ -1476,7 +1487,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromDirectDrawSurface(surface, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromDirectDrawSurface", "Ptr", surface, "Ptr*", bitmap)
+    static CreateBitmapFromDirectDrawSurface(surface, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromDirectDrawSurface", "Ptr", surface, "Ptr*", &bitmap)
 
     /**
      * Creates a Bitmap object from a GDI device-independent bitmap (DIB).
@@ -1485,7 +1496,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromGdiDib(gdiBitmapInfo, gdiBitmapData, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromGdiDib", "Ptr", gdiBitmapInfo, "Ptr", gdiBitmapData, "Ptr*", bitmap)
+    static CreateBitmapFromGdiDib(gdiBitmapInfo, gdiBitmapData, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromGdiDib", "Ptr", gdiBitmapInfo, "Ptr", gdiBitmapData, "Ptr*", &bitmap)
 
     /**
      * Creates a Bitmap object from a Windows handle to a bitmap (HBITMAP).
@@ -1494,7 +1505,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromHBITMAP(hbm, hpal, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hbm, "Ptr", hpal, "Ptr*", bitmap)
+    static CreateBitmapFromHBITMAP(hbm, hpal, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromHBITMAP", "Ptr", hbm, "Ptr", hpal, "Ptr*", &bitmap)
 
     /**
      * Creates a Windows handle to a bitmap (HBITMAP) from a Bitmap object.
@@ -1503,7 +1514,7 @@ class GDIP
      * @param {Pointer} hbmReturn - A pointer to a variable that receives the handle of the new bitmap.
      * @returns {Integer} Status code.
      */
-    static CreateHBITMAPFromBitmap(bitmap, hbmColor, hbmReturn) => DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", bitmap, "Ptr*", hbmReturn, "UInt", hbmColor)
+    static CreateHBITMAPFromBitmap(bitmap, hbmColor, &hbmReturn) => DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", bitmap, "Ptr*", hbmReturn, "UInt", &hbmColor)
 
     /**
      * Creates a Bitmap object from a Windows handle to an icon (HICON).
@@ -1511,7 +1522,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromHICON(hicon, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromHICON", "Ptr", hicon, "Ptr*", bitmap)
+    static CreateBitmapFromHICON(hicon, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromHICON", "Ptr", hicon, "Ptr*", &bitmap)
 
     /**
      * Creates a Windows handle to an icon (HICON) from a Bitmap object.
@@ -1519,7 +1530,7 @@ class GDIP
      * @param {Pointer} hbmColor - A pointer to a variable that receives the handle of the new icon.
      * @returns {Integer} Status code.
      */
-    static CreateHICONFromBitmap(bitmap, hbmColor) => DllCall("gdiplus\GdipCreateHICONFromBitmap", "Ptr", bitmap, "Ptr*", hbmColor)
+    static CreateHICONFromBitmap(bitmap, &hbmColor) => DllCall("gdiplus\GdipCreateHICONFromBitmap", "Ptr", bitmap, "Ptr*", &hbmColor)
 
     /**
      * Creates a Bitmap object from a resource in a module.
@@ -1528,7 +1539,7 @@ class GDIP
      * @param {Pointer} bitmap - A pointer to a variable that receives a pointer to the new Bitmap object.
      * @returns {Integer} Status code.
      */
-    static CreateBitmapFromResource(hInstance, lpBitmapName, bitmap) => DllCall("gdiplus\GdipCreateBitmapFromResource", "Ptr", hInstance, "Str", lpBitmapName, "Ptr*", bitmap)
+    static CreateBitmapFromResource(hInstance, lpBitmapName, &bitmap) => DllCall("gdiplus\GdipCreateBitmapFromResource", "Ptr", hInstance, "Str", lpBitmapName, "Ptr*", &bitmap)
 
     /**
      * Creates a new Bitmap object from a specified region of another Bitmap object.
@@ -2660,7 +2671,7 @@ class GDIP
      * @param {Pointer} graphics - A pointer to a variable that receives a pointer to the Graphics object.
      * @returns {Integer} Status code.
      */
-    static CreateFromHDC(hdc, graphics) => DllCall("gdiplus\GdipCreateFromHDC", "Ptr", hdc, "Ptr", graphics)
+    static CreateFromHDC(hdc, &graphics) => DllCall("gdiplus\GdipCreateFromHDC", "Ptr", hdc, "Ptr*", &graphics)
 
     /**
      * Creates a Graphics object from a device context handle (HDC) and a device handle.
@@ -2669,7 +2680,7 @@ class GDIP
      * @param {Pointer} graphics - A pointer to a variable that receives a pointer to the Graphics object.
      * @returns {Integer} Status code.
      */
-    static CreateFromHDC2(hdc, hdevice, graphics) => DllCall("gdiplus\GdipCreateFromHDC2", "Ptr", hdc, "Ptr", hdevice, "Ptr", graphics)
+    static CreateFromHDC2(hdc, hdevice, &graphics) => DllCall("gdiplus\GdipCreateFromHDC2", "Ptr", hdc, "Ptr", hdevice, "Ptr*", &graphics)
 
     /**
      * Creates a Graphics object from a window handle (HWND).
@@ -2677,7 +2688,7 @@ class GDIP
      * @param {Pointer} graphics - A pointer to a variable that receives a pointer to the Graphics object.
      * @returns {Integer} Status code.
      */
-    static CreateFromHWND(hwnd, graphics) => DllCall("gdiplus\GdipCreateFromHWND", "Ptr", hwnd, "Ptr", graphics)
+    static CreateFromHWND(hwnd, &graphics) => DllCall("gdiplus\GdipCreateFromHWND", "Ptr", hwnd, "Ptr*", &graphics)
 
     /**
      * Creates a Graphics object from a window handle (HWND) with ICM (Image Color Management) enabled.
@@ -2685,7 +2696,7 @@ class GDIP
      * @param {Pointer} graphics - A pointer to a variable that receives a pointer to the Graphics object.
      * @returns {Integer} Status code.
      */
-    static CreateFromHWNDICM(hwnd, graphics) => DllCall("gdiplus\GdipCreateFromHWNDICM", "Ptr", hwnd, "Ptr", graphics)
+    static CreateFromHWNDICM(hwnd, &graphics) => DllCall("gdiplus\GdipCreateFromHWNDICM", "Ptr", hwnd, "Ptr*", &graphics)
 
     /**
      * Deletes the specified Graphics object.

@@ -139,7 +139,7 @@ Update()
 {
     global canvas
     canvas.Clear()
-    UpdateGradient()
+    ;UpdateGradient()
     UpdateBezier()
     UpdateRectangle()
     UpdateEllipse()
@@ -166,8 +166,8 @@ Draw()
 
     ; Draw the Gradient
     canvas.DrawGradient(spectrum, Point(150, 10), 30)
-    canvas.DrawRadialGradient(redToWhite, Point(600, 500), 50)
-    canvas.DrawRadialGradient(spectrum, Point(600, 150), 100)
+    ;canvas.DrawRadialGradient(redToWhite, Point(600, 500), 50)
+    ;canvas.DrawRadialGradient(spectrum, Point(600, 150), 100)
 
     ; Draw the Text
     canvas.DrawText(textObj, textFont, tealBrush)
@@ -242,8 +242,7 @@ UpdateGradient()
     alpha += alphaChange
     if (alpha >= 128) or (alpha <= 10)
         alphaChange *= -1
-    spectrum := spectrum.Map((col) => Color(col.R, col.G, col.B, alpha))
-    spectrum.ShiftHue(textSpeed * 2)
+    spectrum := spectrum.Map((col) => Color(col.R, col.G, col.B, alpha).ShiftHue(textSpeed * 2))
     spectrum.CreatePens(2)
 }
 
